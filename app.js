@@ -242,17 +242,6 @@ async function deleteItemsByUsername(storeName, username) {
         request.onerror = () => reject(request.error);
     });
 }
-            const cursor = e.target.result;
-            if (cursor) {
-                cursor.delete();
-                cursor.continue();
-            } else {
-                resolve();
-            }
-        };
-        request.onerror = () => reject(request.error);
-    });
-}
 
 // --- Password Encryption Security (Web Crypto API SHA-256) ---
 async function hashPassword(password) {
