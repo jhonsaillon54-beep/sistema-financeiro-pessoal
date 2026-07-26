@@ -2530,7 +2530,15 @@ async function deleteAccount() {
                 // 3. Delete budgets
                 await deleteItemsByUsername('budgets', username);
                 // 4. Delete user record
-                await deleteItem('users', username);
+                if (supabaseClient) {
+                    const { error: userDelError } = await supabaseClient
+                        .from('users')
+                        .delete()
+                        .eq('username', username);
+                    if (userDelError) throw userDelError;
+                } else {
+                    await deleteItem('users', username);
+                }
 
                 // 5. Logout
                 sessionStorage.removeItem('active_user');
