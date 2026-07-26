@@ -71,6 +71,10 @@
                     <input type="text" id="registerUser" placeholder="Ex: joao" required autocomplete="username">
                     <div class="error-msg" id="registerUserError">Este nome de usuário já existe.</div>
                 </div>
+                <div class="form-group">
+                    <label for="registerEmail">E-mail</label>
+                    <input type="email" id="registerEmail" placeholder="Ex: joao@email.com" required autocomplete="email">
+                </div>
                 <div class="form-row">
                     <div class="form-group flex-1">
                         <label for="registerPass">Senha</label>
@@ -173,15 +177,6 @@
             </div>
             
             <div class="header-actions">
-                <!-- Database Connection Status Badge -->
-                <div id="dbStatusBadge" class="db-status-badge local" title="Armazenamento Local (IndexedDB)">
-                    <i class="fa-solid fa-database"></i>
-                    <span>Local</span>
-                </div>
-                <div class="user-profile">
-                    <i class="fa-solid fa-user"></i>
-                    <span id="activeUsername">Usuário</span>
-                </div>
                 <span class="current-date" id="headerDate">Terça, 21 de Julho de 2026</span>
                 <button class="theme-toggle-btn" id="themeToggle" aria-label="Alternar tema escuro/claro">
                     <i class="fa-solid fa-sun"></i>
@@ -199,7 +194,7 @@
             <section class="overview-section">
                 <div class="welcome-row">
                     <div class="welcome-box">
-                        <h2>Olá! Bem-vindo ao seu painel financeiro.</h2>
+                        <h2 id="welcomeUserMessage">Olá! Bem-vindo ao seu painel financeiro.</h2>
                         <p>Acompanhe seus gastos, metas e economias.</p>
                     </div>
                     

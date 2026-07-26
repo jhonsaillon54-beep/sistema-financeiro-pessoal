@@ -254,7 +254,7 @@ async function hashPassword(password) {
 }
 
 // --- Authentication & Recovery Controllers ---
-async function registerUser(username, password, question, answer) {
+async function registerUser(username, password, question, answer, email) {
     if (supabaseClient) {
         const { data: existingUser, error: checkError } = await supabaseClient
             .from('users')
@@ -276,7 +276,8 @@ async function registerUser(username, password, question, answer) {
                 username, 
                 password: hashedPassword,
                 question,
-                answer: hashedAnswer
+                answer: hashedAnswer,
+                email
             });
         if (insertError) {
             console.error("Supabase registration error (insert):", insertError);
@@ -300,7 +301,8 @@ async function registerUser(username, password, question, answer) {
                     username, 
                     password: hashedPassword,
                     question,
-                    answer: hashedAnswer
+                    answer: hashedAnswer,
+                    email
                 });
                 addRequest.onsuccess = () => resolve();
                 addRequest.onerror = () => reject(addRequest.error);
@@ -717,7 +719,15 @@ function saveGlobalSettings() {
 async function loginUserSession(username) {
     sessionStorage.setItem('active_user', username);
     state.username = username;
-    document.getElementById('activeUsername').textContent = username;
+    
+    const activeUsernameEl = document.getElementById('activeUsername');
+    if (activeUsernameEl) {
+        activeUsernameEl.textContent = username;
+    }
+    const welcomeMsg = document.getElementById('welcomeUserMessage');
+    if (welcomeMsg) {
+        welcomeMsg.textContent = `Olá, ${username}! Bem-vindo ao seu painel financeiro.`;
+    }
     
     await loadUserData(username);
     initializeReferenceMonth();
@@ -2331,6 +2341,7 @@ function setupEventListeners() {
     document.getElementById('registerForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const usernameInput = document.getElementById('registerUser').value.trim().toLowerCase();
+        const emailInput = document.getElementById('registerEmail').value.trim().toLowerCase();
         const passwordInput = document.getElementById('registerPass').value;
         const confirmInput = document.getElementById('registerPassConfirm').value;
         const questionInput = document.getElementById('registerQuestion').value;
@@ -2342,7 +2353,7 @@ function setupEventListeners() {
         userError.style.display = 'none';
         passError.style.display = 'none';
 
-        if (!usernameInput || !passwordInput || !confirmInput || !questionInput || !answerInput) {
+        if (!usernameInput || !emailInput || !passwordInput || !confirmInput || !questionInput || !answerInput) {
             showToast('Preencha todos os campos do formulário.', 'warning');
             return;
         }
@@ -2358,7 +2369,7 @@ function setupEventListeners() {
         }
 
         try {
-            await registerUser(usernameInput, passwordInput, questionInput, answerInput);
+            await registerUser(usernameInput, passwordInput, questionInput, answerInput, emailInput);
             showToast('Conta criada com sucesso! Faça seu login para acessar.', 'success');
             
             switchAuthTab('loginTab', 'loginForm');
