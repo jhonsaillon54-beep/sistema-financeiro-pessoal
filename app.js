@@ -1398,6 +1398,7 @@ async function handleCategoryFormSubmit(e) {
         state.categories.push(newCategory);
         
         nameInput.value = '';
+        iconInput.value = '';
         renderCategoriesDropdowns();
         renderCategoriesListModal();
         renderApp();
