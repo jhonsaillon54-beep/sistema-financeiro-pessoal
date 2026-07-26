@@ -1055,7 +1055,17 @@ function renderTransactionsTable() {
         
         const descParts = t.description.split(' | ');
         const mainDesc = descParts[0];
-        const observationHtml = descParts[1] ? `<br><small class="text-muted" style="font-size: 0.72rem; opacity: 0.75; font-weight: normal;"><i class="fa-solid fa-circle-info" style="font-size: 0.68rem; margin-right: 3px;"></i>${descParts[1]}</small>` : '';
+        const obs = descParts[1] || '';
+        const interest = descParts[2] || '';
+        
+        let observationHtml = '';
+        if (obs || interest) {
+            let details = [];
+            if (obs) details.push(obs);
+            if (interest) details.push(`Juros: ${interest}%`);
+            const detailsText = details.join(' • ');
+            observationHtml = `<br><small class="text-muted" style="font-size: 0.72rem; opacity: 0.75; font-weight: normal;"><i class="fa-solid fa-circle-info" style="font-size: 0.68rem; margin-right: 3px;"></i>${detailsText}</small>`;
+        }
 
         return `
             <tr class="animate-fade">
@@ -1288,6 +1298,7 @@ function openEditTransactionModal(id) {
     const descParts = t.description.split(' | ');
     document.getElementById('transDescription').value = descParts[0];
     document.getElementById('transObservation').value = descParts[1] || '';
+    document.getElementById('transInterest').value = descParts[2] || '';
     
     document.getElementById('transAmount').value = t.amount;
     document.getElementById('transDate').value = t.date;
@@ -1301,6 +1312,7 @@ function openEditTransactionModal(id) {
 
     clearErrors();
     openModal('transactionModal');
+    toggleInterestRowVisibility();
 }
 
 function deleteTransaction(id) {
@@ -1337,6 +1349,7 @@ async function handleTransactionFormSubmit(e) {
     const type = document.querySelector('input[name="transactionType"]:checked').value;
     const description = document.getElementById('transDescription').value.trim();
     const observation = document.getElementById('transObservation').value.trim();
+    const interestVal = document.getElementById('transInterest') ? document.getElementById('transInterest').value.trim() : '';
     const amountVal = parseFloat(document.getElementById('transAmount').value);
     const date = document.getElementById('transDate').value;
     const category = document.getElementById('transCategory').value;
@@ -1359,7 +1372,7 @@ async function handleTransactionFormSubmit(e) {
 
     if (hasErrors) return;
 
-    const finalDescription = observation ? `${description} | ${observation}` : description;
+    const finalDescription = [description, observation, interestVal].join(' | ');
 
     const transactionData = {
         id: id || `trans-${state.username}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1405,13 +1418,22 @@ async function handleTransactionFormSubmit(e) {
             const nextDateStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
 
             const mainDesc = description.split(' | ')[0];
+            
+            // Calculate payback amount incorporating interest if present
+            let paybackAmount = amountVal;
+            const parsedInterest = parseFloat(interestVal);
+            if (!isNaN(parsedInterest) && parsedInterest > 0) {
+                paybackAmount = amountVal * (1 + parsedInterest / 100);
+            }
+            
+            const interestSuffix = (!isNaN(parsedInterest) && parsedInterest > 0) ? ` (+${parsedInterest}% juros)` : '';
 
             const paybackData = {
                 id: `${transactionData.id}-payback`,
                 username: state.username,
                 type: 'expense',
-                description: `Pagamento: ${mainDesc}`,
-                amount: amountVal,
+                description: `Pagamento: ${mainDesc}${interestSuffix}`,
+                amount: paybackAmount,
                 date: nextDateStr,
                 category: category
             };
@@ -1447,6 +1469,7 @@ async function handleTransactionFormSubmit(e) {
         } else {
             document.getElementById('transDescription').value = '';
             document.getElementById('transObservation').value = '';
+            document.getElementById('transInterest').value = '';
             document.getElementById('transAmount').value = '';
             
             // Reset the date input to match the (potentially updated) active month
@@ -1835,7 +1858,12 @@ function exportPDF(filteredTransactions, filenameSuffix) {
             
             const descParts = t.description.split(' | ');
             const mainDesc = descParts[0];
-            const observationText = descParts[1] ? ` <span style="font-size: 0.75rem; color: #64748b; font-weight: normal;">(${descParts[1]})</span>` : '';
+            const obs = descParts[1] || '';
+            const interest = descParts[2] || '';
+            let details = [];
+            if (obs) details.push(obs);
+            if (interest) details.push(`Juros: ${interest}%`);
+            const observationText = details.length > 0 ? ` <span style="font-size: 0.75rem; color: #64748b; font-weight: normal;">(${details.join(' • ')})</span>` : '';
 
             reportHtml += `
                 <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -2141,7 +2169,12 @@ function exportPDFPrintFallback(filteredTransactions, filenameSuffix) {
         const typeClass = t.type === 'income' ? 'inc' : 'exp';
         const descParts = t.description.split(' | ');
         const mainDesc = descParts[0];
-        const observationText = descParts[1] ? ` <span style="font-size: 0.75rem; color: #64748b; font-weight: normal;">(${descParts[1]})</span>` : '';
+        const obs = descParts[1] || '';
+        const interest = descParts[2] || '';
+        let details = [];
+        if (obs) details.push(obs);
+        if (interest) details.push(`Juros: ${interest}%`);
+        const observationText = details.length > 0 ? ` <span style="font-size: 0.75rem; color: #64748b; font-weight: normal;">(${details.join(' • ')})</span>` : '';
 
         html += `
             <tr>
@@ -2310,6 +2343,25 @@ function clearAllData() {
             }
         }
     );
+}
+
+function toggleInterestRowVisibility() {
+    const categorySelect = document.getElementById('transCategory');
+    const typeSelect = document.querySelector('input[name="transactionType"]:checked');
+    const interestRow = document.getElementById('interestRow');
+    
+    if (!categorySelect || !typeSelect || !interestRow) return;
+    
+    const category = categorySelect.value;
+    const type = typeSelect.value;
+    const isLoanIncome = (type === 'income') && (category.toLowerCase() === 'empréstimo' || category.toLowerCase() === 'emprestimo');
+    
+    if (isLoanIncome) {
+        interestRow.style.display = 'flex';
+    } else {
+        interestRow.style.display = 'none';
+        document.getElementById('transInterest').value = '';
+    }
 }
 
 // --- Bind HTML Event Listeners ---
@@ -2521,6 +2573,8 @@ function setupEventListeners() {
         document.getElementById('transactionId').value = '';
         document.getElementById('transactionForm').reset();
         document.getElementById('transObservation').value = '';
+        document.getElementById('transInterest').value = '';
+        toggleInterestRowVisibility();
         
         // Use active reference month if it doesn't match current actual month, otherwise use today's date
         const today = new Date();
@@ -2566,6 +2620,15 @@ function setupEventListeners() {
     document.getElementById('closeCategoriesModalBtn').addEventListener('click', () => closeModal('categoriesModal'));
     document.getElementById('closeBudgetsModalBtn').addEventListener('click', () => closeModal('budgetsModal'));
     document.getElementById('closeBackupModalBtn').addEventListener('click', () => closeModal('backupModal'));
+
+    // Toggle Interest Rate visibility based on transaction type/category
+    const transCategoryEl = document.getElementById('transCategory');
+    if (transCategoryEl) {
+        transCategoryEl.addEventListener('change', toggleInterestRowVisibility);
+    }
+    document.querySelectorAll('input[name="transactionType"]').forEach(radio => {
+        radio.addEventListener('change', toggleInterestRowVisibility);
+    });
 
     // Form Submissions
     document.getElementById('transactionForm').addEventListener('submit', handleTransactionFormSubmit);
