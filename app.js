@@ -858,8 +858,6 @@ function renderApp() {
 
 // 1. Summary Metrics Card Panel (Calculates Month Specific Income/Expenses and Total Balance)
 function renderDashboardSummary() {
-    let allTimeIncome = 0;
-    let allTimeExpense = 0;
     let refMonthIncome = 0;
     let refMonthExpense = 0;
 
@@ -869,15 +867,6 @@ function renderDashboardSummary() {
         const amount = t.amount;
         const type = t.type;
         const tMonthKey = t.date.substring(0, 7);
-
-        // Cumulative balance tracking up to the active reference month
-        if (tMonthKey <= activeMonthKey) {
-            if (type === 'income') {
-                allTimeIncome += amount;
-            } else if (type === 'expense') {
-                allTimeExpense += amount;
-            }
-        }
 
         // Active month specific tracking
         if (tMonthKey === activeMonthKey) {
@@ -889,7 +878,7 @@ function renderDashboardSummary() {
         }
     });
 
-    const overallBalance = allTimeIncome - allTimeExpense;
+    const overallBalance = refMonthIncome - refMonthExpense;
     
     let refMonthSavingsRate = 0;
     if (refMonthIncome > 0) {
