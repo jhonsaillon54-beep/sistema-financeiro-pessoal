@@ -55,7 +55,7 @@ const DEMO_BUDGETS = {
 const DB_NAME = 'FinanclyDB';
 const DB_VERSION = 1;
 let db = null;
-let supabase = null;
+let supabaseClient = null;
 
 // Initialize Supabase Connection if available
 async function initSupabase() {
@@ -64,7 +64,7 @@ async function initSupabase() {
         if (res.ok) {
             const config = await res.json();
             if (config.url && config.key && window.supabase) {
-                supabase = window.supabase.createClient(config.url, config.key);
+                supabaseClient = window.supabase.createClient(config.url, config.key);
                 console.log("Supabase Client initialized successfully.");
                 updateDBBadge(true);
                 return true;
@@ -138,8 +138,8 @@ function initDB() {
 
 // --- Generic IndexedDB & Supabase CRUD Helper Wrappers ---
 async function getItemsByUsername(storeName, username) {
-    if (supabase) {
-        const { data, error } = await supabase
+    if (supabaseClient) {
+        const { data, error } = await supabaseClient
             .from(storeName)
             .select('*')
             .eq('username', username);
@@ -162,8 +162,8 @@ async function getItemsByUsername(storeName, username) {
 }
 
 async function putItem(storeName, item) {
-    if (supabase) {
-        const { error } = await supabase
+    if (supabaseClient) {
+        const { error } = await supabaseClient
             .from(storeName)
             .upsert(item);
         if (error) {
@@ -189,8 +189,8 @@ function deleteItemGlobal(storeName, id) {
 }
 
 async function deleteItem(storeName, id) {
-    if (supabase) {
-        const { error } = await supabase
+    if (supabaseClient) {
+        const { error } = await supabaseClient
             .from(storeName)
             .delete()
             .eq('id', id);
@@ -212,8 +212,8 @@ async function deleteItem(storeName, id) {
 }
 
 async function deleteItemsByUsername(storeName, username) {
-    if (supabase) {
-        const { error } = await supabase
+    if (supabaseClient) {
+        const { error } = await supabaseClient
             .from(storeName)
             .delete()
             .eq('username', username);
@@ -255,8 +255,8 @@ async function hashPassword(password) {
 
 // --- Authentication & Recovery Controllers ---
 async function registerUser(username, password, question, answer) {
-    if (supabase) {
-        const { data: existingUser, error: checkError } = await supabase
+    if (supabaseClient) {
+        const { data: existingUser, error: checkError } = await supabaseClient
             .from('users')
             .select('username')
             .eq('username', username)
@@ -270,7 +270,7 @@ async function registerUser(username, password, question, answer) {
         }
         const hashedPassword = await hashPassword(password);
         const hashedAnswer = await hashPassword(answer.trim().toLowerCase());
-        const { error: insertError } = await supabase
+        const { error: insertError } = await supabaseClient
             .from('users')
             .insert({ 
                 username, 
@@ -311,8 +311,8 @@ async function registerUser(username, password, question, answer) {
 }
 
 async function validateLogin(username, password) {
-    if (supabase) {
-        const { data: user, error } = await supabase
+    if (supabaseClient) {
+        const { data: user, error } = await supabaseClient
             .from('users')
             .select('*')
             .eq('username', username)
@@ -347,8 +347,8 @@ async function validateLogin(username, password) {
 }
 
 async function validateRecovery(username, question, answer) {
-    if (supabase) {
-        const { data: user, error } = await supabase
+    if (supabaseClient) {
+        const { data: user, error } = await supabaseClient
             .from('users')
             .select('*')
             .eq('username', username)
@@ -390,9 +390,9 @@ async function validateRecovery(username, question, answer) {
 }
 
 async function resetPassword(username, newPassword) {
-    if (supabase) {
+    if (supabaseClient) {
         const hashedPassword = await hashPassword(newPassword);
-        const { error } = await supabase
+        const { error } = await supabaseClient
             .from('users')
             .update({ password: hashedPassword })
             .eq('username', username);
