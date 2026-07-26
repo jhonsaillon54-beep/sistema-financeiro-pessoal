@@ -795,7 +795,20 @@ function renderDashboardSummary() {
         }
     });
 
-    const overallBalance = refMonthIncome - refMonthExpense;
+    // Calculate pending fixed expenses to automatically discount from current balance
+    let fixedExpensesToDeduct = 0;
+    state.categories.forEach(cat => {
+        if (cat.isFixed && cat.fixedAmount > 0) {
+            const spentThisMonth = state.transactions
+                .filter(t => t.type === 'expense' && t.category === cat.name && t.date.substring(0, 7) === activeMonthKey)
+                .reduce((sum, t) => sum + t.amount, 0);
+            
+            const remaining = Math.max(0, cat.fixedAmount - spentThisMonth);
+            fixedExpensesToDeduct += remaining;
+        }
+    });
+
+    const overallBalance = refMonthIncome - refMonthExpense - fixedExpensesToDeduct;
     
     let refMonthSavingsRate = 0;
     if (refMonthIncome > 0) {
@@ -806,6 +819,16 @@ function renderDashboardSummary() {
     document.getElementById('totalIncome').textContent = formatCurrency(refMonthIncome);
     document.getElementById('totalExpense').textContent = formatCurrency(refMonthExpense);
     document.getElementById('savingsRate').textContent = `${refMonthSavingsRate.toFixed(1)}%`;
+
+    const subtextEl = document.getElementById('fixedBalanceSubtext');
+    if (subtextEl) {
+        if (fixedExpensesToDeduct > 0) {
+            subtextEl.style.display = 'block';
+            subtextEl.textContent = `Pendente fixo: -${formatCurrency(fixedExpensesToDeduct)}`;
+        } else {
+            subtextEl.style.display = 'none';
+        }
+    }
 }
 
 function formatCurrency(val) {
@@ -854,6 +877,9 @@ function renderCategoriesListModal() {
         const iconHtml = c.icon && c.icon.startsWith('fa-') 
             ? `<i class="fa-solid ${c.icon}"></i>` 
             : `<span class="category-emoji-icon">${c.icon || '🏷️'}</span>`;
+        const fixedBadge = c.isFixed 
+            ? `<span style="font-size: 0.7rem; background: rgba(244,63,94,0.15); color: #f43f5e; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 8px; display: inline-flex; align-items: center; gap: 3px;">📌 Fixo: ${formatCurrency(c.fixedAmount)}</span>` 
+            : '';
         return `
             <div class="category-item animate-fade">
                 <div class="category-item-info">
@@ -861,6 +887,7 @@ function renderCategoriesListModal() {
                         ${iconHtml}
                     </span>
                     <span>${c.name}</span>
+                    ${fixedBadge}
                 </div>
                 <button type="button" class="category-item-delete" onclick="deleteCategory('${c.id}', '${c.name}')" title="Excluir Categoria">
                     <i class="fa-solid fa-trash"></i>
@@ -1336,13 +1363,6 @@ async function handleTransactionFormSubmit(e) {
         } else {
             state.transactions.push(transactionData);
             
-            // Auto align dashboard referenceMonth to added transaction month
-            const newMonthKey = date.substring(0, 7);
-            if (newMonthKey !== state.referenceMonth) {
-                state.referenceMonth = newMonthKey;
-                updateActiveMonthLabel();
-            }
-            
             showToast('Nova transação adicionada com sucesso.', 'success');
         }
 
@@ -1372,10 +1392,14 @@ async function handleCategoryFormSubmit(e) {
     const nameInput = document.getElementById('newCategoryName');
     const colorInput = document.getElementById('newCategoryColor');
     const iconInput = document.getElementById('newCategoryIcon');
+    const isFixedInput = document.getElementById('newCategoryIsFixed');
+    const fixedAmountInput = document.getElementById('newCategoryFixedAmount');
 
     const name = nameInput.value.trim();
     const color = colorInput.value;
     const icon = iconInput.value;
+    const isFixed = isFixedInput ? isFixedInput.checked : false;
+    const fixedAmount = (isFixed && fixedAmountInput) ? parseFloat(fixedAmountInput.value) || 0 : 0;
 
     if (!name) return;
 
@@ -1390,7 +1414,9 @@ async function handleCategoryFormSubmit(e) {
         username: state.username,
         name,
         color,
-        icon
+        icon,
+        isFixed,
+        fixedAmount
     };
 
     try {
@@ -1399,6 +1425,12 @@ async function handleCategoryFormSubmit(e) {
         
         nameInput.value = '';
         iconInput.value = '';
+        if (isFixedInput) isFixedInput.checked = false;
+        if (fixedAmountInput) {
+            fixedAmountInput.value = '';
+            document.getElementById('fixedAmountWrapper').style.display = 'none';
+        }
+        
         renderCategoriesDropdowns();
         renderCategoriesListModal();
         renderApp();
@@ -2490,6 +2522,21 @@ function setupEventListeners() {
                 const iconInput = document.getElementById('newCategoryIcon');
                 if (iconInput) {
                     iconInput.value = e.target.textContent;
+                }
+            }
+        });
+    }
+
+    // Toggle Fixed Expense Amount Visibility
+    const newCategoryIsFixed = document.getElementById('newCategoryIsFixed');
+    if (newCategoryIsFixed) {
+        newCategoryIsFixed.addEventListener('change', (e) => {
+            const wrapper = document.getElementById('fixedAmountWrapper');
+            if (wrapper) {
+                wrapper.style.display = e.target.checked ? 'flex' : 'none';
+                if (e.target.checked) {
+                    const amountInput = document.getElementById('newCategoryFixedAmount');
+                    if (amountInput) amountInput.focus();
                 }
             }
         });
