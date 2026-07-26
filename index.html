@@ -173,6 +173,11 @@
             </div>
             
             <div class="header-actions">
+                <!-- Database Connection Status Badge -->
+                <div id="dbStatusBadge" class="db-status-badge local" title="Armazenamento Local (IndexedDB)">
+                    <i class="fa-solid fa-database"></i>
+                    <span>Local</span>
+                </div>
                 <div class="user-profile">
                     <i class="fa-solid fa-user"></i>
                     <span id="activeUsername">Usuário</span>
@@ -670,6 +675,9 @@
 
     <!-- html2pdf Library for direct PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Supabase JS Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Main JavaScript Logic -->
     <script src="app.js"></script>

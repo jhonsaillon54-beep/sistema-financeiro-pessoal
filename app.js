@@ -51,10 +51,46 @@ const DEMO_BUDGETS = {
     'Transporte': 300.00
 };
 
-// --- Database Configuration (IndexedDB) ---
+// --- Database Configuration (IndexedDB & Supabase fallback) ---
 const DB_NAME = 'FinanclyDB';
 const DB_VERSION = 1;
 let db = null;
+let supabase = null;
+
+// Initialize Supabase Connection if available
+async function initSupabase() {
+    try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+            const config = await res.json();
+            if (config.url && config.key && window.supabase) {
+                supabase = window.supabase.createClient(config.url, config.key);
+                console.log("Supabase Client initialized successfully.");
+                updateDBBadge(true);
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn("Could not retrieve Supabase config. Using IndexedDB local store.", e);
+    }
+    updateDBBadge(false);
+    return false;
+}
+
+function updateDBBadge(isCloud) {
+    const badge = document.getElementById('dbStatusBadge');
+    if (badge) {
+        if (isCloud) {
+            badge.className = 'db-status-badge cloud';
+            badge.innerHTML = '<i class="fa-solid fa-cloud"></i> <span>Nuvem</span>';
+            badge.title = 'Armazenamento em Nuvem Ativo (Supabase)';
+        } else {
+            badge.className = 'db-status-badge local';
+            badge.innerHTML = '<i class="fa-solid fa-database"></i> <span>Local</span>';
+            badge.title = 'Armazenamento Local Ativo (IndexedDB)';
+        }
+    }
+}
 
 // Initialize Database Connection
 function initDB() {
@@ -100,8 +136,20 @@ function initDB() {
     });
 }
 
-// --- Generic IndexedDB CRUD Helper Wrappers ---
-function getItemsByUsername(storeName, username) {
+// --- Generic IndexedDB & Supabase CRUD Helper Wrappers ---
+async function getItemsByUsername(storeName, username) {
+    if (supabase) {
+        const { data, error } = await supabase
+            .from(storeName)
+            .select('*')
+            .eq('username', username);
+        if (error) {
+            console.error(`Supabase error reading from ${storeName}:`, error);
+            throw error;
+        }
+        return data || [];
+    }
+
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readonly');
         const store = transaction.objectStore(storeName);
@@ -113,7 +161,18 @@ function getItemsByUsername(storeName, username) {
     });
 }
 
-function putItem(storeName, item) {
+async function putItem(storeName, item) {
+    if (supabase) {
+        const { error } = await supabase
+            .from(storeName)
+            .upsert(item);
+        if (error) {
+            console.error(`Supabase error writing to ${storeName}:`, error);
+            throw error;
+        }
+        return item;
+    }
+
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readwrite');
         const store = transaction.objectStore(storeName);
@@ -129,7 +188,19 @@ function deleteItemGlobal(storeName, id) {
     return deleteItem(storeName, id);
 }
 
-function deleteItem(storeName, id) {
+async function deleteItem(storeName, id) {
+    if (supabase) {
+        const { error } = await supabase
+            .from(storeName)
+            .delete()
+            .eq('id', id);
+        if (error) {
+            console.error(`Supabase error deleting from ${storeName}:`, error);
+            throw error;
+        }
+        return;
+    }
+
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readwrite');
         const store = transaction.objectStore(storeName);
@@ -140,7 +211,19 @@ function deleteItem(storeName, id) {
     });
 }
 
-function deleteItemsByUsername(storeName, username) {
+async function deleteItemsByUsername(storeName, username) {
+    if (supabase) {
+        const { error } = await supabase
+            .from(storeName)
+            .delete()
+            .eq('username', username);
+        if (error) {
+            console.error(`Supabase error bulk deleting from ${storeName}:`, error);
+            throw error;
+        }
+        return;
+    }
+
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readwrite');
         const store = transaction.objectStore(storeName);
@@ -148,6 +231,17 @@ function deleteItemsByUsername(storeName, username) {
         const request = index.openCursor(IDBKeyRange.only(username));
 
         request.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+                cursor.delete();
+                cursor.continue();
+            } else {
+                resolve();
+            }
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
             const cursor = e.target.result;
             if (cursor) {
                 cursor.delete();
@@ -172,6 +266,36 @@ async function hashPassword(password) {
 
 // --- Authentication & Recovery Controllers ---
 async function registerUser(username, password, question, answer) {
+    if (supabase) {
+        const { data: existingUser, error: checkError } = await supabase
+            .from('users')
+            .select('username')
+            .eq('username', username)
+            .maybeSingle();
+        if (checkError) {
+            console.error("Supabase registration error (check):", checkError);
+            throw checkError;
+        }
+        if (existingUser) {
+            throw 'username_exists';
+        }
+        const hashedPassword = await hashPassword(password);
+        const hashedAnswer = await hashPassword(answer.trim().toLowerCase());
+        const { error: insertError } = await supabase
+            .from('users')
+            .insert({ 
+                username, 
+                password: hashedPassword,
+                question,
+                answer: hashedAnswer
+            });
+        if (insertError) {
+            console.error("Supabase registration error (insert):", insertError);
+            throw insertError;
+        }
+        return;
+    }
+
     return new Promise(async (resolve, reject) => {
         const transaction = db.transaction('users', 'readwrite');
         const store = transaction.objectStore('users');
@@ -198,6 +322,23 @@ async function registerUser(username, password, question, answer) {
 }
 
 async function validateLogin(username, password) {
+    if (supabase) {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .maybeSingle();
+        if (error) {
+            console.error("Supabase login error:", error);
+            throw error;
+        }
+        if (!user) {
+            return false;
+        }
+        const hashedPassword = await hashPassword(password);
+        return user.password === hashedPassword;
+    }
+
     return new Promise(async (resolve, reject) => {
         const transaction = db.transaction('users', 'readonly');
         const store = transaction.objectStore('users');
@@ -217,6 +358,26 @@ async function validateLogin(username, password) {
 }
 
 async function validateRecovery(username, question, answer) {
+    if (supabase) {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .maybeSingle();
+        if (error) {
+            console.error("Supabase recovery check error:", error);
+            throw error;
+        }
+        if (!user) {
+            return 'user_not_found';
+        }
+        const hashedAnswer = await hashPassword(answer.trim().toLowerCase());
+        if (user.question !== question || user.answer !== hashedAnswer) {
+            return 'invalid_credentials';
+        }
+        return 'ok';
+    }
+
     return new Promise(async (resolve, reject) => {
         const transaction = db.transaction('users', 'readonly');
         const store = transaction.objectStore('users');
@@ -240,6 +401,19 @@ async function validateRecovery(username, question, answer) {
 }
 
 async function resetPassword(username, newPassword) {
+    if (supabase) {
+        const hashedPassword = await hashPassword(newPassword);
+        const { error } = await supabase
+            .from('users')
+            .update({ password: hashedPassword })
+            .eq('username', username);
+        if (error) {
+            console.error("Supabase reset password error:", error);
+            throw error;
+        }
+        return;
+    }
+
     return new Promise(async (resolve, reject) => {
         const transaction = db.transaction('users', 'readwrite');
         const store = transaction.objectStore('users');
@@ -510,6 +684,7 @@ function changeReferenceMonth(offset) {
 // --- Application Core Bootstrapping ---
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        await initSupabase();
         await initDB();
         setupHeaderDate();
         loadGlobalSettings();
@@ -939,15 +1114,15 @@ function renderTransactionsTable() {
         
         return `
             <tr class="animate-fade">
-                <td class="col-date">${formatDateBR(t.date)}</td>
-                <td class="col-desc"><strong>${t.description}</strong></td>
-                <td class="col-cat">
+                <td class="col-date" data-label="Data">${formatDateBR(t.date)}</td>
+                <td class="col-desc" data-label="Descrição"><strong>${t.description}</strong></td>
+                <td class="col-cat" data-label="Categoria">
                     <span class="category-tag" style="background-color: ${cat.color}">
                         <i class="fa-solid ${cat.icon || 'fa-tag'}"></i> ${t.category}
                     </span>
                 </td>
-                <td class="col-amount ${amountClass}">${amountPrefix} ${formatCurrency(t.amount)}</td>
-                <td class="col-actions">
+                <td class="col-amount ${amountClass}" data-label="Valor">${amountPrefix} ${formatCurrency(t.amount)}</td>
+                <td class="col-actions" data-label="Ações">
                     <button class="btn-icon edit-action" onclick="openEditTransactionModal('${t.id}')" title="Editar">
                         <i class="fa-solid fa-pencil"></i>
                     </button>

@@ -1988,6 +1988,193 @@ body.logged-out #authSection {
     visibility: hidden;
 }
 
+/* ==========================================================================
+   Database Status Badge Style System
+   ========================================================================== */
+.db-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    transition: all var(--transition-fast);
+    user-select: none;
+}
+
+.db-status-badge.local {
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--color-warning);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.light-theme .db-status-badge.local {
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.db-status-badge.cloud {
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--color-success);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.light-theme .db-status-badge.cloud {
+    background: rgba(16, 185, 129, 0.05);
+}
+
+/* ==========================================================================
+   Mobile Responsiveness Layout System (Under 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+    .app-container {
+        padding: 16px 12px;
+        gap: 16px;
+    }
+
+    .app-header {
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px 20px;
+        text-align: center;
+        width: 100%;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: space-around;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .current-date {
+        display: none; /* Hide date on mobile to save vertical space */
+    }
+
+    .welcome-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .month-selector-card {
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .quick-actions-bar {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        width: 100%;
+    }
+
+    .quick-actions-bar .btn {
+        width: 100%;
+        padding: 12px 8px;
+        font-size: 0.82rem;
+    }
+
+    /* Make transaction header wrap correctly */
+    .transactions-header {
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .filters-bar {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .search-box, .select-wrapper, .date-filter-group {
+        width: 100% !important;
+    }
+
+    .filters-bar select, .date-filter-group input {
+        width: 100%;
+    }
+
+    .date-filter-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    /* Responsive Table to Cards conversion */
+    .transactions-table, 
+    .transactions-table thead, 
+    .transactions-table tbody, 
+    .transactions-table th, 
+    .transactions-table td, 
+    .transactions-table tr {
+        display: block;
+    }
+    
+    .transactions-table thead {
+        display: none; /* Hide the table column headers */
+    }
+    
+    .transactions-table tbody tr {
+        margin-bottom: 14px;
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 12px 16px;
+        position: relative;
+    }
+
+    .light-theme .transactions-table tbody tr {
+        background: rgba(15, 23, 42, 0.01);
+    }
+    
+    .transactions-table td {
+        border-bottom: none;
+        padding: 8px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-align: right;
+    }
+
+    .transactions-table td:not(:last-child) {
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.03);
+    }
+
+    .light-theme .transactions-table td:not(:last-child) {
+        border-bottom: 1px dashed rgba(15, 23, 42, 0.03);
+    }
+    
+    /* Inject mobile headers */
+    .transactions-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        margin-right: 12px;
+        text-align: left;
+    }
+    
+    /* Reset custom column widths for mobile */
+    .col-date, .col-desc, .col-cat, .col-amount, .col-actions {
+        width: 100% !important;
+        text-align: right !important;
+    }
+
+    .col-actions {
+        justify-content: flex-end;
+    }
+    
+    .category-tag {
+        padding: 4px 10px;
+        font-size: 0.75rem;
+    }
+}
+
 
 
 
