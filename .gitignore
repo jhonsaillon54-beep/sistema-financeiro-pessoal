@@ -1,0 +1,19 @@
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Caches and logs
+*.log
+.npm/
+.yarn/
+
+# IDE files
+.vscode/
+.idea/
+.project
+.settings/
+.agents/
+.gemini/
+*.tmp
+*.bak

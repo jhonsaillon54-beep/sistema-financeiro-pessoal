@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Financly - Sistema moderno de gestão financeira pessoal para controle de gastos, receitas, orçamentos e relatórios detalhados.">
+    <title>Financly - Gestão Financeira Pessoal</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme logged-out">
+    <!-- Dynamic Loading Screen Overlay -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2>Financly</h2>
+            <p>Carregando seus dados...</p>
+        </div>
+    </div>
+
+    <!-- Authentication Section -->
+    <section id="authSection">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <h2>Financly</h2>
+                <p>Acesse seu controle financeiro pessoal</p>
+            </div>
+            
+            <div class="auth-toggle">
+                <button type="button" class="auth-tab active" id="loginTab">Entrar</button>
+                <button type="button" class="auth-tab" id="registerTab">Cadastrar</button>
+                <button type="button" class="auth-tab" id="recoveryTab">Recuperar</button>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form active" novalidate>
+                <div class="form-group">
+                    <label for="loginUser">Nome de Usuário</label>
+                    <input type="text" id="loginUser" placeholder="Ex: joao" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="loginPass">Senha</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="loginPass" placeholder="Digite sua senha" required autocomplete="current-password">
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('loginPass', this)" aria-label="Mostrar ou ocultar senha">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                    <div class="error-msg" id="loginError">Usuário ou senha incorretos.</div>
+                </div>
+                <div class="auth-helper-links">
+                    <button type="button" class="btn-link" id="forgotPassBtn">Esqueci minha senha</button>
+                </div>
+                <button type="submit" class="btn btn-primary w-100" id="loginBtn">Entrar</button>
+            </form>
+            
+            <!-- Register Form -->
+            <form id="registerForm" class="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="registerUser">Nome de Usuário</label>
+                    <input type="text" id="registerUser" placeholder="Ex: joao" required autocomplete="username">
+                    <div class="error-msg" id="registerUserError">Este nome de usuário já existe.</div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="registerPass">Senha</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="registerPass" placeholder="Min. 4 caracteres" required autocomplete="new-password">
+                            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('registerPass', this)" aria-label="Mostrar senha">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="registerPassConfirm">Confirmar</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="registerPassConfirm" placeholder="Confirme" required autocomplete="new-password">
+                            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('registerPassConfirm', this)" aria-label="Mostrar senha">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="error-msg" id="registerPassError">As senhas não coincidem.</div>
+                    </div>
+                </div>
+                
+                <!-- Security Question for password recovery -->
+                <div class="form-group">
+                    <label for="registerQuestion">Pergunta de Segurança (Para Recuperação)</label>
+                    <select id="registerQuestion" required>
+                        <option value="pet">Qual o nome do seu primeiro animal de estimação?</option>
+                        <option value="city">Qual a cidade onde você nasceu?</option>
+                        <option value="mother">Qual o nome de solteira da sua mãe?</option>
+                        <option value="school">Qual o nome da sua primeira escola?</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="registerAnswer">Resposta de Segurança</label>
+                    <input type="text" id="registerAnswer" placeholder="Resposta secreta" required>
+                </div>
+                
+                <button type="submit" class="btn btn-success w-100" id="createUserBtn">Criar Conta</button>
+            </form>
+
+            <!-- Password Recovery Form -->
+            <form id="recoveryForm" class="auth-form" novalidate>
+                <div class="form-group">
+                    <label for="recoveryUser">Nome de Usuário</label>
+                    <input type="text" id="recoveryUser" placeholder="Digite seu usuário" required autocomplete="username">
+                    <div class="error-msg" id="recoveryUserError">Este usuário não existe.</div>
+                </div>
+                <div class="form-group">
+                    <label for="recoveryQuestion">Pergunta de Segurança</label>
+                    <select id="recoveryQuestion" required>
+                        <option value="pet">Qual o nome do seu primeiro animal de estimação?</option>
+                        <option value="city">Qual a cidade onde você nasceu?</option>
+                        <option value="mother">Qual o nome de solteira da sua mãe?</option>
+                        <option value="school">Qual o nome da sua primeira escola?</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="recoveryAnswer">Resposta de Segurança</label>
+                    <input type="text" id="recoveryAnswer" placeholder="Digite a resposta correta" required>
+                    <div class="error-msg" id="recoveryAnswerError">Resposta incorreta.</div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="recoveryPass">Nova Senha</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="recoveryPass" placeholder="Nova Senha" required autocomplete="new-password">
+                            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('recoveryPass', this)" aria-label="Mostrar senha">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="recoveryPassConfirm">Confirmar</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="recoveryPassConfirm" placeholder="Confirme" required autocomplete="new-password">
+                            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('recoveryPassConfirm', this)" aria-label="Mostrar senha">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="error-msg" id="recoveryPassError">As senhas não coincidem.</div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100" id="resetPassSubmitBtn">Redefinir Senha</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Main App Container wrapper for auth conditional display -->
+    <div id="appContent">
+        <!-- Main App Container -->
+    <div class="app-container">
+        
+        <!-- Header Section -->
+        <header class="app-header">
+            <div class="header-logo">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <h1>Financly</h1>
+            </div>
+            
+            <div class="header-actions">
+                <div class="user-profile">
+                    <i class="fa-solid fa-user"></i>
+                    <span id="activeUsername">Usuário</span>
+                </div>
+                <span class="current-date" id="headerDate">Terça, 21 de Julho de 2026</span>
+                <button class="theme-toggle-btn" id="themeToggle" aria-label="Alternar tema escuro/claro">
+                    <i class="fa-solid fa-sun"></i>
+                </button>
+                <button class="btn-logout" id="logoutBtn" title="Sair do Sistema">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Body Layout -->
+        <main class="dashboard-grid">
+            
+            <!-- Quick Actions & Overview Cards -->
+            <section class="overview-section">
+                <div class="welcome-row">
+                    <div class="welcome-box">
+                        <h2>Olá! Bem-vindo ao seu painel financeiro.</h2>
+                        <p>Acompanhe seus gastos, metas e economias.</p>
+                    </div>
+                    
+                    <!-- Reference Month Selector -->
+                    <div class="month-selector-card">
+                        <button type="button" class="btn-month-nav" id="prevMonthBtn" title="Mês Anterior">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <div class="month-display">
+                            <i class="fa-solid fa-calendar-days"></i>
+                            <span id="activeMonthLabel">Carregando...</span>
+                        </div>
+                        <button type="button" class="btn-month-nav" id="nextMonthBtn" title="Próximo Mês">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Quick Action Buttons -->
+                <div class="quick-actions-bar">
+                    <button class="btn btn-primary" id="openAddTransactionBtn">
+                        <i class="fa-solid fa-plus"></i> Nova Transação
+                    </button>
+                    <button class="btn btn-secondary" id="openCategoriesBtn">
+                        <i class="fa-solid fa-tags"></i> Categorias
+                    </button>
+                    <button class="btn btn-secondary" id="openBudgetsBtn">
+                        <i class="fa-solid fa-bullseye"></i> Metas de Orçamento
+                    </button>
+                    <button class="btn btn-secondary" id="openBackupBtn">
+                        <i class="fa-solid fa-database"></i> Backup (JSON)
+                    </button>
+                </div>
+
+                <!-- Finance Summary Cards -->
+                <div class="summary-cards">
+                    <!-- Balance Card -->
+                    <div class="summary-card balance">
+                        <div class="card-icon">
+                            <i class="fa-solid fa-scale-balanced"></i>
+                        </div>
+                        <div class="card-details">
+                            <h3>Saldo Atual</h3>
+                            <span class="card-value" id="totalBalance">R$ 0,00</span>
+                        </div>
+                        <div class="card-decor"></div>
+                    </div>
+                    
+                    <!-- Income Card -->
+                    <div class="summary-card income">
+                        <div class="card-icon">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                        </div>
+                        <div class="card-details">
+                            <h3>Receitas</h3>
+                            <span class="card-value" id="totalIncome">R$ 0,00</span>
+                        </div>
+                        <div class="card-decor"></div>
+                    </div>
+                    
+                    <!-- Expense Card -->
+                    <div class="summary-card expense">
+                        <div class="card-icon">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                        </div>
+                        <div class="card-details">
+                            <h3>Despesas</h3>
+                            <span class="card-value" id="totalExpense">R$ 0,00</span>
+                        </div>
+                        <div class="card-decor"></div>
+                    </div>
+                    
+                    <!-- Economy Card -->
+                    <div class="summary-card economy">
+                        <div class="card-icon">
+                            <i class="fa-solid fa-piggy-bank"></i>
+                        </div>
+                        <div class="card-details">
+                            <h3>Taxa de Economia</h3>
+                            <span class="card-value" id="savingsRate">0%</span>
+                        </div>
+                        <div class="card-decor"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <section class="charts-section">
+                <!-- Cash Flow Chart Card -->
+                <div class="chart-card line-chart-container">
+                    <div class="chart-header">
+                        <h3>Fluxo de Caixa (12 Meses)</h3>
+                        <div class="chart-header-nav">
+                            <span class="chart-period-indicator" id="chartPeriodLabel">Carregando...</span>
+                        </div>
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="cashFlowChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Category Chart Card -->
+                <div class="chart-card doughnut-chart-container">
+                    <div class="chart-header">
+                        <h3>Despesas por Categoria</h3>
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Budget Limits Section -->
+            <section class="budget-section">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3>Limites de Orçamentos da Categoria</h3>
+                        <i class="fa-solid fa-bullseye"></i>
+                    </div>
+                    <div class="budgets-container" id="budgetsListContainer">
+                        <!-- Dynamic content loaded via JS -->
+                        <p class="empty-state-message">Nenhum orçamento configurado ainda. Clique em "Metas de Orçamento" para definir limites!</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transactions List Section -->
+            <section class="transactions-section">
+                <div class="section-card">
+                    <!-- Filters and Search Header -->
+                    <div class="transactions-header">
+                        <div class="title-area">
+                            <h3>Histórico de Transações</h3>
+                            <span class="badge" id="transactionsCount">0 transações</span>
+                        </div>
+                        
+                        <div class="filters-bar">
+                            <div class="search-box">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="searchInput" placeholder="Pesquisar transação...">
+                            </div>
+                            
+                            <div class="select-wrapper">
+                                <select id="filterType" aria-label="Filtrar por tipo">
+                                    <option value="all">Todos os tipos</option>
+                                    <option value="income">Receitas</option>
+                                    <option value="expense">Despesas</option>
+                                </select>
+                            </div>
+
+                            <div class="select-wrapper">
+                                <select id="filterCategory" aria-label="Filtrar por categoria">
+                                    <option value="all">Todas as categorias</option>
+                                    <!-- Dynamic options loaded via JS -->
+                                </select>
+                            </div>
+                            
+                            <div class="date-filter-group">
+                                <input type="date" id="filterStartDate" aria-label="Data inicial">
+                                <span>até</span>
+                                <input type="date" id="filterEndDate" aria-label="Data final">
+                            </div>
+
+                            <button class="btn-icon" id="clearFiltersBtn" title="Limpar Filtros">
+                                <i class="fa-solid fa-rotate-left"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Transactions Table Wrapper -->
+                    <div class="table-container">
+                        <table class="transactions-table" id="transactionsTable">
+                            <thead>
+                                <tr>
+                                    <th class="col-date sortable" data-sort="date">Data <i class="fa-solid fa-sort"></i></th>
+                                    <th class="col-desc sortable" data-sort="description">Descrição <i class="fa-solid fa-sort"></i></th>
+                                    <th class="col-cat">Categoria</th>
+                                    <th class="col-amount sortable" data-sort="amount">Valor <i class="fa-solid fa-sort"></i></th>
+                                    <th class="col-actions">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsList">
+                                <!-- Dynamic transactions loaded via JS -->
+                            </tbody>
+                        </table>
+                        <div class="empty-state" id="emptyState">
+                            <i class="fa-solid fa-folder-open"></i>
+                            <p>Nenhuma transação encontrada.</p>
+                            <span class="subtext">Adicione uma nova transação ou altere seus filtros de busca.</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+        </main>
+        
+        <!-- App Footer -->
+        <footer class="app-footer">
+            <p>&copy; 2026 Financly. Desenvolvido com amor para sua organização financeira.</p>
+        </footer>
+    </div>
+
+    <!-- MODAL: ADD / EDIT TRANSACTION -->
+    <div class="modal-overlay" id="transactionModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modalTitle">Nova Transação</h3>
+                <button class="close-btn" id="closeTransactionModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="transactionForm" novalidate>
+                    <input type="hidden" id="transactionId">
+                    
+                    <!-- Type selector (income or expense) -->
+                    <div class="form-group">
+                        <label>Tipo de Transação</label>
+                        <div class="type-selector">
+                            <input type="radio" name="transactionType" id="typeExpense" value="expense" checked>
+                            <label for="typeExpense" class="type-label type-expense-label">
+                                <i class="fa-solid fa-arrow-trend-down"></i> Despesa
+                            </label>
+                            
+                            <input type="radio" name="transactionType" id="typeIncome" value="income">
+                            <label for="typeIncome" class="type-label type-income-label">
+                                <i class="fa-solid fa-arrow-trend-up"></i> Receita
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="transDescription">Descrição</label>
+                        <input type="text" id="transDescription" placeholder="Ex: Supermercado, Salário, etc." required>
+                        <div class="error-msg" id="descError">A descrição é obrigatória.</div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <!-- Amount -->
+                        <div class="form-group flex-1">
+                            <label for="transAmount">Valor (R$)</label>
+                            <input type="number" id="transAmount" step="0.01" min="0.01" placeholder="0,00" required>
+                            <div class="error-msg" id="amountError">Insira um valor maior que zero.</div>
+                        </div>
+                        
+                        <!-- Date -->
+                        <div class="form-group flex-1">
+                            <label for="transDate">Data</label>
+                            <input type="date" id="transDate" required>
+                            <div class="error-msg" id="dateError">Selecione uma data válida.</div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <!-- Category selection -->
+                        <div class="form-group flex-1">
+                            <label for="transCategory">Categoria</label>
+                            <select id="transCategory" required>
+                                <!-- Categories dynamically loaded -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelTransactionBtn">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="saveTransactionBtn">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CATEGORIES MANAGEMENT -->
+    <div class="modal-overlay" id="categoriesModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Gerenciar Categorias</h3>
+                <button class="close-btn" id="closeCategoriesModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Add new Category -->
+                <form id="categoryForm" class="inline-form">
+                    <div class="form-group flex-1">
+                        <label for="newCategoryName">Nova Categoria</label>
+                        <input type="text" id="newCategoryName" placeholder="Ex: Investimentos, Pet..." required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newCategoryColor">Cor</label>
+                        <input type="color" id="newCategoryColor" value="#9333ea">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newCategoryIcon">Ícone</label>
+                        <select id="newCategoryIcon">
+                            <option value="fa-shopping-cart">&#xf07a; Compra</option>
+                            <option value="fa-utensils">&#xf2e7; Alimentação</option>
+                            <option value="fa-car">&#xf1b9; Transporte</option>
+                            <option value="fa-home">&#xf015; Moradia</option>
+                            <option value="fa-bolt">&#xf0e7; Lazer</option>
+                            <option value="fa-heartbeat">&#xf21e; Saúde</option>
+                            <option value="fa-graduation-cap">&#xf19d; Educação</option>
+                            <option value="fa-money-bill-wave">&#xf53a; Renda</option>
+                            <option value="fa-gift">&#xf06b; Presentes</option>
+                            <option value="fa-gamepad">&#xf11b; Entretenimento</option>
+                            <option value="fa-ellipsis-h">&#xf141; Outros</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-inline" id="saveCategoryBtn">
+                        <i class="fa-solid fa-plus"></i> Add
+                    </button>
+                </form>
+
+                <div class="divider"></div>
+
+                <!-- Categories list -->
+                <h4>Minhas Categorias</h4>
+                <div class="categories-list" id="modalCategoriesList">
+                    <!-- Dynamic categories list -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: BUDGET LIMITS -->
+    <div class="modal-overlay" id="budgetsModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Definir Metas de Orçamento</h3>
+                <button class="close-btn" id="closeBudgetsModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-subtitle">Defina o limite mensal máximo de gastos que você deseja fazer para cada categoria.</p>
+                
+                <form id="budgetForm">
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="budgetCategory">Categoria</label>
+                            <select id="budgetCategory" required>
+                                <!-- Load options dynamically -->
+                            </select>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="budgetAmount">Limite Mensal (R$)</label>
+                            <input type="number" id="budgetAmount" step="0.01" min="0" placeholder="Sem limite" required>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="saveBudgetBtn">Salvar Orçamento</button>
+                    </div>
+                </form>
+
+                <div class="divider"></div>
+
+                <h4>Metas Ativas</h4>
+                <div class="active-budgets-list" id="modalBudgetsList">
+                    <!-- Dynamic list with set budgets and a delete button -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: BACKUP & DATA IMPORT/EXPORT -->
+    <div class="modal-overlay" id="backupModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Importar & Exportar Dados</h3>
+                <button class="close-btn" id="closeBackupModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="backup-actions">
+                    <div class="backup-card">
+                        <div class="backup-icon"><i class="fa-solid fa-file-export"></i></div>
+                        <h4>Exportar Dados</h4>
+                        <p class="modal-subtitle">Escolha o período e formato do arquivo de dados para download.</p>
+                        
+                        <!-- Period Selector -->
+                        <div class="form-group mt-10">
+                            <label for="exportPeriodSelect">Filtrar Período</label>
+                            <select id="exportPeriodSelect">
+                                <option value="all">Tudo (Completo)</option>
+                                <option value="month">Mês Específico</option>
+                                <option value="custom">Intervalo Personalizado</option>
+                            </select>
+                        </div>
+
+                        <!-- Specific Month Input (hidden by default) -->
+                        <div class="form-group mt-10" id="exportMonthWrapper" style="display: none;">
+                            <label for="exportMonthInput">Escolha o Mês</label>
+                            <input type="month" id="exportMonthInput">
+                        </div>
+
+                        <!-- Custom Date Range Inputs (hidden by default) -->
+                        <div id="exportCustomRangeWrapper" style="display: none;">
+                            <div class="form-row mt-10">
+                                <div class="form-group flex-1">
+                                    <label for="exportStartDate">De</label>
+                                    <input type="date" id="exportStartDate">
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="exportEndDate">Até</label>
+                                    <input type="date" id="exportEndDate">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Format Selector -->
+                        <div class="form-group mt-10">
+                            <label for="exportFormatSelect">Formato do Arquivo</label>
+                            <select id="exportFormatSelect">
+                                <option value="json">JSON (Backup do Sistema)</option>
+                                <option value="csv">CSV (Planilha Excel / Relatório)</option>
+                                <option value="pdf">PDF (Resumo Financeiro Impresso)</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary w-100 mt-20" id="exportDataBtn">
+                            <i class="fa-solid fa-download"></i> Baixar Arquivo
+                        </button>
+                    </div>
+                    
+                    <div class="backup-card">
+                        <div class="backup-icon"><i class="fa-solid fa-file-import"></i></div>
+                        <h4>Importar Dados</h4>
+                        <p>Substitua seus dados atuais importando um arquivo de backup JSON previamente exportado por você.</p>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="importFileInput" accept=".json" class="file-input">
+                            <label for="importFileInput" class="btn btn-secondary w-100">
+                                <i class="fa-solid fa-upload"></i> Selecionar Arquivo
+                            </label>
+                        </div>
+                        <span id="importFileName" class="file-name-text">Nenhum arquivo selecionado</span>
+                        <button class="btn btn-success w-100 mt-10" id="confirmImportBtn" disabled>
+                            Confirmar Importação
+                        </button>
+                    </div>
+                </div>
+
+                <div class="danger-zone">
+                    <h4>Zona de Perigo</h4>
+                    <p>Isso apagará permanentemente todas as suas informações locais, incluindo transações, categorias customizadas e orçamentos configurados.</p>
+                    <button class="btn btn-danger" id="clearAllDataBtn">
+                        <i class="fa-solid fa-trash-can"></i> Limpar Todos os Dados
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div> <!-- End #appContent -->
+
+    <!-- Custom Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-card confirm-modal-card">
+            <div class="modal-header">
+                <h3 id="confirmModalTitle">Confirmar Ação</h3>
+                <button type="button" class="close-btn" id="closeConfirmModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalMessage">Deseja realmente prosseguir?</p>
+                <div class="form-actions mt-20">
+                    <button type="button" class="btn btn-secondary" id="confirmModalCancelBtn">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="confirmModalConfirmBtn">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- html2pdf Library for direct PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Main JavaScript Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
