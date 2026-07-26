@@ -184,6 +184,9 @@
                 <button class="btn-logout" id="logoutBtn" title="Sair do Sistema">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
+                <button class="btn-delete-account" id="deleteAccountBtn" title="Excluir Minha Conta">
+                    <i class="fa-solid fa-user-minus"></i>
+                </button>
             </div>
         </header>
 
@@ -489,26 +492,27 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="newCategoryIcon">Ícone</label>
-                        <select id="newCategoryIcon">
-                            <option value="fa-shopping-cart">&#xf07a; Compra</option>
-                            <option value="fa-utensils">&#xf2e7; Alimentação</option>
-                            <option value="fa-car">&#xf1b9; Transporte</option>
-                            <option value="fa-home">&#xf015; Moradia</option>
-                            <option value="fa-bolt">&#xf0e7; Lazer</option>
-                            <option value="fa-heartbeat">&#xf21e; Saúde</option>
-                            <option value="fa-graduation-cap">&#xf19d; Educação</option>
-                            <option value="fa-money-bill-wave">&#xf53a; Renda</option>
-                            <option value="fa-gift">&#xf06b; Presentes</option>
-                            <option value="fa-gamepad">&#xf11b; Entretenimento</option>
-                            <option value="fa-ellipsis-h">&#xf141; Outros</option>
-                        </select>
+                        <label for="newCategoryIcon">Ícone (Emoji)</label>
+                        <input type="text" id="newCategoryIcon" placeholder="🏷️" maxlength="2" required style="width: 70px; text-align: center; font-size: 1.25rem;">
                     </div>
                     
                     <button type="submit" class="btn btn-primary btn-inline" id="saveCategoryBtn">
                         <i class="fa-solid fa-plus"></i> Add
                     </button>
                 </form>
+                
+                <div class="emoji-picker-container">
+                    <label>Escolha um Emoji rápido ou digite no campo acima:</label>
+                    <div class="emoji-grid" id="emojiGrid">
+                        <span>💰</span><span>🍕</span><span>🚗</span><span>🏠</span>
+                        <span>🎉</span><span>🏥</span><span>🎓</span><span>🛒</span>
+                        <span>✈️</span><span>💡</span><span>📱</span><span>🎁</span>
+                        <span>🐕</span><span>💪</span><span>🔧</span><span>💼</span>
+                        <span>🍿</span><span>🔒</span><span>👕</span><span>📚</span>
+                        <span>❤️</span><span>🍔</span><span>⚽</span><span>🎮</span>
+                        <span>💵</span><span>📈</span><span>🐱</span><span>🚲</span>
+                    </div>
+                </div>
 
                 <div class="divider"></div>
 
@@ -659,7 +663,12 @@
                 <button type="button" class="close-btn" id="closeConfirmModalBtn">&times;</button>
             </div>
             <div class="modal-body">
-                <p id="confirmModalMessage">Deseja realmente prosseguir?</p>
+                <div class="confirm-modal-content">
+                    <div class="confirm-modal-icon">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <p id="confirmModalMessage">Deseja realmente prosseguir?</p>
+                </div>
                 <div class="form-actions mt-20">
                     <button type="button" class="btn btn-secondary" id="confirmModalCancelBtn">Cancelar</button>
                     <button type="button" class="btn btn-danger" id="confirmModalConfirmBtn">Confirmar</button>

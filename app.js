@@ -22,14 +22,14 @@ let categoryChartInstance = null;
 
 // --- Default Categories Configuration ---
 const DEFAULT_CATEGORIES = [
-    { name: 'Alimentação', color: '#f43f5e', icon: 'fa-utensils' },
-    { name: 'Transporte', color: '#3b82f6', icon: 'fa-car' },
-    { name: 'Moradia', color: '#f59e0b', icon: 'fa-home' },
-    { name: 'Lazer', color: '#10b981', icon: 'fa-bolt' },
-    { name: 'Saúde', color: '#ec4899', icon: 'fa-heartbeat' },
-    { name: 'Educação', color: '#8b5cf6', icon: 'fa-graduation-cap' },
-    { name: 'Salário', color: '#14b8a6', icon: 'fa-money-bill-wave' },
-    { name: 'Outros', color: '#6b7280', icon: 'fa-ellipsis-h' }
+    { name: 'Alimentação', color: '#f43f5e', icon: '🍕' },
+    { name: 'Transporte', color: '#3b82f6', icon: '🚗' },
+    { name: 'Moradia', color: '#f59e0b', icon: '🏠' },
+    { name: 'Lazer', color: '#10b981', icon: '🎉' },
+    { name: 'Saúde', color: '#ec4899', icon: '🏥' },
+    { name: 'Educação', color: '#8b5cf6', icon: '📚' },
+    { name: 'Salário', color: '#14b8a6', icon: '💰' },
+    { name: 'Outros', color: '#6b7280', icon: '🏷️' }
 ];
 
 // --- Default Seeding Transactions Template (used to generate 6 months of history) ---
@@ -523,91 +523,8 @@ async function loadUserData(username) {
             await putItem('categories', cat);
         }
         userCategories = seedCategories;
-
-        // Generate 6 months of historical transactions ending in the current calendar month
-        const today = new Date();
-        const seedTransactions = [];
-        
-        for (let m = 0; m < 6; m++) {
-            const d = new Date(today.getFullYear(), today.getMonth() - m, 1);
-            const y = d.getFullYear();
-            const mo = String(d.getMonth() + 1).padStart(2, '0');
-            const monthPrefix = `${y}-${mo}`;
-
-            // Seeding Salary
-            seedTransactions.push({
-                id: `trans-${username}-sal-${m}-${Date.now()}`,
-                username,
-                description: 'Salário Mensal',
-                amount: 5500.00,
-                type: 'income',
-                category: 'Salário',
-                date: `${monthPrefix}-05`
-            });
-
-            // Seeding Rent
-            seedTransactions.push({
-                id: `trans-${username}-rent-${m}-${Date.now()}`,
-                username,
-                description: 'Aluguel do Apartamento',
-                amount: 1500.00,
-                type: 'expense',
-                category: 'Moradia',
-                date: `${monthPrefix}-10`
-            });
-
-            // Seeding grocery (varies slightly)
-            seedTransactions.push({
-                id: `trans-${username}-food-${m}-${Date.now()}`,
-                username,
-                description: 'Supermercado',
-                amount: parseFloat((600.00 + (m * 10) - (Math.random() * 30)).toFixed(2)),
-                type: 'expense',
-                category: 'Alimentação',
-                date: `${monthPrefix}-12`
-            });
-
-            // Seeding leisure
-            seedTransactions.push({
-                id: `trans-${username}-leisure-${m}-${Date.now()}`,
-                username,
-                description: 'Lazer & Cinema',
-                amount: parseFloat((150.00 + (m * 25) + (Math.random() * 20)).toFixed(2)),
-                type: 'expense',
-                category: 'Lazer',
-                date: `${monthPrefix}-15`
-            });
-
-            // Seeding transportation every other month
-            if (m % 2 === 0) {
-                seedTransactions.push({
-                    id: `trans-${username}-trans-${m}-${Date.now()}`,
-                    username,
-                    description: 'Combustível Carro',
-                    amount: 220.00,
-                    type: 'expense',
-                    category: 'Transporte',
-                    date: `${monthPrefix}-14`
-                });
-            }
-        }
-        
-        for (let trans of seedTransactions) {
-            await putItem('transactions', trans);
-        }
-
-        // Seed demo budgets
-        const seedBudgets = Object.keys(DEMO_BUDGETS).map(catName => ({
-            id: `budget-${username}-${catName}`,
-            username,
-            category: catName,
-            amount: DEMO_BUDGETS[catName]
-        }));
-        
-        for (let bud of seedBudgets) {
-            await putItem('budgets', bud);
-        }
     }
+
 
     // Fetch user specific data from stores
     const userTransactions = await getItemsByUsername('transactions', username);
@@ -934,11 +851,14 @@ function renderCategoriesListModal() {
     }
 
     listContainer.innerHTML = state.categories.map(c => {
+        const iconHtml = c.icon && c.icon.startsWith('fa-') 
+            ? `<i class="fa-solid ${c.icon}"></i>` 
+            : `<span class="category-emoji-icon">${c.icon || '🏷️'}</span>`;
         return `
             <div class="category-item animate-fade">
                 <div class="category-item-info">
                     <span class="category-color-bubble" style="background-color: ${c.color}">
-                        <i class="fa-solid ${c.icon || 'fa-tag'}"></i>
+                        ${iconHtml}
                     </span>
                     <span>${c.name}</span>
                 </div>
@@ -1098,9 +1018,13 @@ function renderTransactionsTable() {
     emptyState.style.display = 'none';
 
     listBody.innerHTML = filtered.map(t => {
-        const cat = state.categories.find(c => c.name === t.category) || { color: '#6b7280', icon: 'fa-tag' };
+        const cat = state.categories.find(c => c.name === t.category) || { color: '#6b7280', icon: '🏷️' };
         const amountClass = t.type === 'income' ? 'amount-income' : 'amount-expense';
         const amountPrefix = t.type === 'income' ? '+' : '-';
+        
+        const iconHtml = cat.icon && cat.icon.startsWith('fa-') 
+            ? `<i class="fa-solid ${cat.icon}"></i>` 
+            : `<span class="category-emoji-icon">${cat.icon || '🏷️'}</span>`;
         
         return `
             <tr class="animate-fade">
@@ -1108,7 +1032,7 @@ function renderTransactionsTable() {
                 <td class="col-desc" data-label="Descrição"><strong>${t.description}</strong></td>
                 <td class="col-cat" data-label="Categoria">
                     <span class="category-tag" style="background-color: ${cat.color}">
-                        <i class="fa-solid ${cat.icon || 'fa-tag'}"></i> ${t.category}
+                        ${iconHtml} ${t.category}
                     </span>
                 </td>
                 <td class="col-amount ${amountClass}" data-label="Valor">${amountPrefix} ${formatCurrency(t.amount)}</td>
@@ -1422,7 +1346,13 @@ async function handleTransactionFormSubmit(e) {
             showToast('Nova transação adicionada com sucesso.', 'success');
         }
 
-        closeModal('transactionModal');
+        if (id) {
+            closeModal('transactionModal');
+        } else {
+            document.getElementById('transDescription').value = '';
+            document.getElementById('transAmount').value = '';
+            document.getElementById('transDescription').focus();
+        }
         renderApp();
     } catch (err) {
         console.error("Error saving transaction:", err);
@@ -2544,6 +2474,25 @@ function setupEventListeners() {
     document.getElementById('importFileInput').addEventListener('change', handleFileInputChange);
     document.getElementById('confirmImportBtn').addEventListener('click', confirmImport);
     document.getElementById('clearAllDataBtn').addEventListener('click', clearAllData);
+
+    // Delete Account Binding
+    const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+    if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', deleteAccount);
+    }
+
+    // Emoji Grid binding
+    const emojiGrid = document.getElementById('emojiGrid');
+    if (emojiGrid) {
+        emojiGrid.addEventListener('click', (e) => {
+            if (e.target.tagName === 'SPAN') {
+                const iconInput = document.getElementById('newCategoryIcon');
+                if (iconInput) {
+                    iconInput.value = e.target.textContent;
+                }
+            }
+        });
+    }
 }
 
 // Switching logic helper for auth screens tabs
@@ -2563,3 +2512,40 @@ window.openEditTransactionModal = openEditTransactionModal;
 window.closeModal = closeModal;
 window.togglePasswordVisibility = togglePasswordVisibility;
 window.deleteItemGlobal = deleteItemGlobal;
+
+async function deleteAccount() {
+    showConfirmModal(
+        'Excluir Minha Conta',
+        'ATENÇÃO: Deseja realmente excluir permanentemente a sua conta e TODOS os seus dados financeiros? Esta ação é irreversível e apagará todas as suas transações, categorias e orçamentos do banco de dados.',
+        async () => {
+            try {
+                const username = state.username;
+                if (!username) return;
+
+                // 1. Delete transactions
+                await deleteItemsByUsername('transactions', username);
+                // 2. Delete categories
+                await deleteItemsByUsername('categories', username);
+                // 3. Delete budgets
+                await deleteItemsByUsername('budgets', username);
+                // 4. Delete user record
+                await deleteItem('users', username);
+
+                // 5. Logout
+                sessionStorage.removeItem('active_user');
+                state.username = null;
+                state.transactions = [];
+                state.categories = [];
+                state.budgets = {};
+
+                showAuthScreen();
+                showToast('Sua conta e todos os dados associados foram excluídos permanentemente.', 'success');
+            } catch (err) {
+                console.error("Error deleting account:", err);
+                showToast('Erro ao excluir sua conta. Tente novamente.', 'danger');
+            }
+        }
+    );
+}
+
+window.deleteAccount = deleteAccount;

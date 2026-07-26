@@ -2230,6 +2230,129 @@ body.logged-out #authSection {
     }
 }
 
+/* Delete Account Button in Header */
+.btn-delete-account {
+    background: none;
+    border: none;
+    color: var(--color-danger);
+    font-size: 1.15rem;
+    cursor: pointer;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+    border: 1px solid transparent;
+}
+
+.btn-delete-account:hover {
+    background: rgba(244, 63, 94, 0.1);
+    border-color: rgba(244, 63, 94, 0.2);
+    transform: scale(1.05);
+}
+
+/* Emoji Picker in Categories Modal */
+.emoji-picker-container {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.emoji-picker-container label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    max-height: 110px;
+    overflow-y: auto;
+}
+
+.light-theme .emoji-grid {
+    background: rgba(15, 23, 42, 0.04);
+}
+
+.emoji-grid span {
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast), transform var(--transition-fast);
+    user-select: none;
+}
+
+.emoji-grid span:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.15);
+}
+
+.light-theme .emoji-grid span:hover {
+    background: rgba(15, 23, 42, 0.08);
+}
+
+/* Beautiful Warnings and Confirm Modals overrides */
+.confirm-modal-card {
+    max-width: 440px !important;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid rgba(244, 63, 94, 0.2);
+}
+
+.confirm-modal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+    padding: 10px 0;
+}
+
+.confirm-modal-icon {
+    width: 64px;
+    height: 64px;
+    background: rgba(244, 63, 94, 0.1);
+    color: var(--color-danger);
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    animation: pulseWarning 2s infinite;
+}
+
+@keyframes pulseWarning {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+#confirmModalMessage {
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.category-emoji-icon {
+    font-size: 1rem;
+    display: inline-block;
+    line-height: 1;
+}
+
 
 
 
