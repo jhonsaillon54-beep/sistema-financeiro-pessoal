@@ -1054,17 +1054,19 @@ function renderTransactionsTable() {
         const matchesType = typeFilter === 'all' || t.type === typeFilter;
         const matchesCategory = catFilter === 'all' || t.category === catFilter;
 
-        let matchesStartDate = true;
-        if (startDate) {
-            matchesStartDate = t.date >= startDate;
-        }
-        
-        let matchesEndDate = true;
-        if (endDate) {
-            matchesEndDate = t.date <= endDate;
+        let matchesDate = true;
+        if (startDate || endDate) {
+            if (startDate) {
+                matchesDate = matchesDate && (t.date >= startDate);
+            }
+            if (endDate) {
+                matchesDate = matchesDate && (t.date <= endDate);
+            }
+        } else {
+            matchesDate = (t.date.substring(0, 7) === state.referenceMonth);
         }
 
-        return matchesSearch && matchesType && matchesCategory && matchesStartDate && matchesEndDate;
+        return matchesSearch && matchesType && matchesCategory && matchesDate;
     });
 
     // Sorting evaluation
