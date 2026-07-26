@@ -1053,10 +1053,14 @@ function renderTransactionsTable() {
             ? `<i class="fa-solid ${cat.icon}"></i>` 
             : `<span class="category-emoji-icon">${cat.icon || '🏷️'}</span>`;
         
+        const descParts = t.description.split(' | ');
+        const mainDesc = descParts[0];
+        const observationHtml = descParts[1] ? `<br><small class="text-muted" style="font-size: 0.72rem; opacity: 0.75; font-weight: normal;"><i class="fa-solid fa-circle-info" style="font-size: 0.68rem; margin-right: 3px;"></i>${descParts[1]}</small>` : '';
+
         return `
             <tr class="animate-fade">
                 <td class="col-date" data-label="Data">${formatDateBR(t.date)}</td>
-                <td class="col-desc" data-label="Descrição"><strong>${t.description}</strong></td>
+                <td class="col-desc" data-label="Descrição"><strong>${mainDesc}</strong>${observationHtml}</td>
                 <td class="col-cat" data-label="Categoria">
                     <span class="category-tag" style="background-color: ${cat.color}">
                         ${iconHtml} ${t.category}
@@ -1280,7 +1284,11 @@ function openEditTransactionModal(id) {
 
     document.getElementById('modalTitle').textContent = 'Editar Transação';
     document.getElementById('transactionId').value = t.id;
-    document.getElementById('transDescription').value = t.description;
+    
+    const descParts = t.description.split(' | ');
+    document.getElementById('transDescription').value = descParts[0];
+    document.getElementById('transObservation').value = descParts[1] || '';
+    
     document.getElementById('transAmount').value = t.amount;
     document.getElementById('transDate').value = t.date;
     document.getElementById('transCategory').value = t.category;
@@ -1319,6 +1327,7 @@ async function handleTransactionFormSubmit(e) {
     const id = document.getElementById('transactionId').value;
     const type = document.querySelector('input[name="transactionType"]:checked').value;
     const description = document.getElementById('transDescription').value.trim();
+    const observation = document.getElementById('transObservation').value.trim();
     const amountVal = parseFloat(document.getElementById('transAmount').value);
     const date = document.getElementById('transDate').value;
     const category = document.getElementById('transCategory').value;
@@ -1341,11 +1350,13 @@ async function handleTransactionFormSubmit(e) {
 
     if (hasErrors) return;
 
+    const finalDescription = observation ? `${description} | ${observation}` : description;
+
     const transactionData = {
         id: id || `trans-${state.username}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         username: state.username,
         type,
-        description,
+        description: finalDescription,
         amount: amountVal,
         date,
         category
@@ -1366,11 +1377,33 @@ async function handleTransactionFormSubmit(e) {
             showToast('Nova transação adicionada com sucesso.', 'success');
         }
 
+        // Check if the transaction date's month/year is different from the currently active reference month
+        const transactionMonth = date.substring(0, 7);
+        if (state.referenceMonth !== transactionMonth) {
+            state.referenceMonth = transactionMonth;
+            updateActiveMonthLabel();
+            showToast(`Visualizando o mês de ${document.getElementById('activeMonthLabel').textContent} para mostrar a transação.`, 'info');
+        }
+
         if (id) {
             closeModal('transactionModal');
         } else {
             document.getElementById('transDescription').value = '';
+            document.getElementById('transObservation').value = '';
             document.getElementById('transAmount').value = '';
+            
+            // Reset the date input to match the (potentially updated) active month
+            const today = new Date();
+            const actualMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+            if (state.referenceMonth && state.referenceMonth !== actualMonthStr) {
+                document.getElementById('transDate').value = `${state.referenceMonth}-01`;
+            } else {
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                document.getElementById('transDate').value = `${year}-${month}-${day}`;
+            }
+            
             document.getElementById('transDescription').focus();
         }
         renderApp();
@@ -1743,10 +1776,14 @@ function exportPDF(filteredTransactions, filenameSuffix) {
             const tagBg = t.type === 'income' ? '#d1fae5' : '#ffe4e6';
             const tagColor = t.type === 'income' ? '#065f46' : '#9f1239';
             
+            const descParts = t.description.split(' | ');
+            const mainDesc = descParts[0];
+            const observationText = descParts[1] ? ` <span style="font-size: 0.75rem; color: #64748b; font-weight: normal;">(${descParts[1]})</span>` : '';
+
             reportHtml += `
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 10px;">${formatDateBR(t.date)}</td>
-                    <td style="padding: 10px;"><strong>${t.description}</strong></td>
+                    <td style="padding: 10px;"><strong>${mainDesc}</strong>${observationText}</td>
                     <td style="padding: 10px;">${t.category}</td>
                     <td style="padding: 10px;"><span style="padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; background: ${tagBg}; color: ${tagColor};">${typeLabel}</span></td>
                     <td style="padding: 10px; color: ${amtColor}; font-weight: 700;">${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}</td>
@@ -2045,10 +2082,14 @@ function exportPDFPrintFallback(filteredTransactions, filenameSuffix) {
         const amtClass = t.type === 'income' ? 'amount-inc' : 'amount-exp';
         const typeLabel = t.type === 'income' ? 'Receita' : 'Despesa';
         const typeClass = t.type === 'income' ? 'inc' : 'exp';
+        const descParts = t.description.split(' | ');
+        const mainDesc = descParts[0];
+        const observationText = descParts[1] ? ` <span style="font-size: 0.75rem; color: #64748b; font-weight: normal;">(${descParts[1]})</span>` : '';
+
         html += `
             <tr>
                 <td>${formatDateBR(t.date)}</td>
-                <td><strong>${t.description}</strong></td>
+                <td><strong>${mainDesc}</strong>${observationText}</td>
                 <td>${t.category}</td>
                 <td><span class="type-tag ${typeClass}">${typeLabel}</span></td>
                 <td class="${amtClass}">${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}</td>
@@ -2422,9 +2463,21 @@ function setupEventListeners() {
         document.getElementById('modalTitle').textContent = 'Nova Transação';
         document.getElementById('transactionId').value = '';
         document.getElementById('transactionForm').reset();
+        document.getElementById('transObservation').value = '';
         
-        const todayStr = new Date().toISOString().substring(0, 10);
-        document.getElementById('transDate').value = todayStr;
+        // Use active reference month if it doesn't match current actual month, otherwise use today's date
+        const today = new Date();
+        const actualMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (state.referenceMonth && state.referenceMonth !== actualMonthStr) {
+            // Set to the first day of the active reference month (YYYY-MM-01)
+            document.getElementById('transDate').value = `${state.referenceMonth}-01`;
+        } else {
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            document.getElementById('transDate').value = `${year}-${month}-${day}`;
+        }
         
         clearErrors();
         openModal('transactionModal');
