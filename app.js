@@ -1311,6 +1311,15 @@ function deleteTransaction(id) {
             try {
                 await deleteItem(window.deleteItemGlobal ? 'transactions' : 'transactions', id);
                 state.transactions = state.transactions.filter(t => t.id !== id);
+                
+                // If it has an automatically generated payback transaction, delete it too
+                const paybackId = `${id}-payback`;
+                const hasPayback = state.transactions.some(t => t.id === paybackId);
+                if (hasPayback) {
+                    await deleteItem('transactions', paybackId);
+                    state.transactions = state.transactions.filter(t => t.id !== paybackId);
+                }
+
                 renderApp();
                 showToast('Transação excluída com sucesso.', 'success');
             } catch (e) {
@@ -1375,6 +1384,54 @@ async function handleTransactionFormSubmit(e) {
             state.transactions.push(transactionData);
             
             showToast('Nova transação adicionada com sucesso.', 'success');
+        }
+
+        // Automatic Loan Payback creation/updates
+        const isLoanIncome = (type === 'income') && (category.toLowerCase() === 'empréstimo' || category.toLowerCase() === 'emprestimo');
+        if (isLoanIncome) {
+            const parts = date.split('-');
+            const year = parseInt(parts[0]);
+            const month = parseInt(parts[1]);
+            const day = parseInt(parts[2]);
+
+            let nextMonth = month + 1;
+            let nextYear = year;
+            if (nextMonth > 12) {
+                nextMonth = 1;
+                nextYear += 1;
+            }
+            const lastDayOfNextMonth = new Date(nextYear, nextMonth, 0).getDate();
+            const nextDay = Math.min(day, lastDayOfNextMonth);
+            const nextDateStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+
+            const mainDesc = description.split(' | ')[0];
+
+            const paybackData = {
+                id: `${transactionData.id}-payback`,
+                username: state.username,
+                type: 'expense',
+                description: `Pagamento: ${mainDesc}`,
+                amount: amountVal,
+                date: nextDateStr,
+                category: category
+            };
+
+            await putItem('transactions', paybackData);
+
+            const paybackIdx = state.transactions.findIndex(t => t.id === paybackData.id);
+            if (paybackIdx !== -1) {
+                state.transactions[paybackIdx] = paybackData;
+            } else {
+                state.transactions.push(paybackData);
+            }
+        } else {
+            // Delete associated payback if category changed or type changed
+            const paybackId = `${transactionData.id}-payback`;
+            const hasPayback = state.transactions.some(t => t.id === paybackId);
+            if (hasPayback) {
+                await deleteItem('transactions', paybackId);
+                state.transactions = state.transactions.filter(t => t.id !== paybackId);
+            }
         }
 
         // Check if the transaction date's month/year is different from the currently active reference month
