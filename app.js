@@ -1514,31 +1514,7 @@ async function handleTransactionFormSubmit(e) {
             showToast(`Visualizando o mês de ${document.getElementById('activeMonthLabel').textContent} para mostrar a transação.`, 'info');
         }
 
-        if (id) {
-            closeModal('transactionModal');
-        } else {
-            document.getElementById('transDescription').value = '';
-            document.getElementById('transObservation').value = '';
-            document.getElementById('transInterest').value = '';
-            document.getElementById('transStatus').value = 'pago';
-            document.getElementById('transRefMonth').value = state.referenceMonth || '';
-            document.getElementById('transPaybackDate').value = '';
-            document.getElementById('transAmount').value = '';
-            
-            // Reset the date input to match the (potentially updated) active month
-            const today = new Date();
-            const actualMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-            if (state.referenceMonth && state.referenceMonth !== actualMonthStr) {
-                document.getElementById('transDate').value = `${state.referenceMonth}-01`;
-            } else {
-                const year = today.getFullYear();
-                const month = String(today.getMonth() + 1).padStart(2, '0');
-                const day = String(today.getDate()).padStart(2, '0');
-                document.getElementById('transDate').value = `${year}-${month}-${day}`;
-            }
-            
-            document.getElementById('transDescription').focus();
-        }
+        closeModal('transactionModal');
         renderApp();
     } catch (err) {
         console.error("Error saving transaction:", err);
