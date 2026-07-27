@@ -1315,7 +1315,7 @@ function renderCharts() {
 
 function parseTransactionDesc(t) {
     if (!t || !t.description) {
-        return { description: '', observation: '', interest: '', status: 'pago', refMonth: t ? (t.date ? t.date.substring(0, 7) : '') : '' };
+        return { description: '', observation: '', interest: '', status: 'pago', refMonth: t ? (t.date ? t.date.substring(0, 7) : '') : '', recurring: 'nao' };
     }
     const descParts = t.description.split(' | ');
     return {
@@ -1323,7 +1323,8 @@ function parseTransactionDesc(t) {
         observation: descParts[1] || '',
         interest: descParts[2] || '',
         status: descParts[3] || 'pago',
-        refMonth: descParts[4] || (t.date ? t.date.substring(0, 7) : '')
+        refMonth: descParts[4] || (t.date ? t.date.substring(0, 7) : ''),
+        recurring: descParts[5] || 'nao'
     };
 }
 
@@ -1341,6 +1342,7 @@ function openEditTransactionModal(id) {
     document.getElementById('transInterest').value = parsed.interest;
     document.getElementById('transStatus').value = parsed.status;
     document.getElementById('transRefMonth').value = parsed.refMonth;
+    document.getElementById('transRecurring').checked = parsed.recurring === 'sim';
 
     // Load payback date if it's a loan
     const paybackTrans = state.transactions.find(item => item.id === `${t.id}-payback`);
@@ -1370,24 +1372,39 @@ function deleteTransaction(id) {
         'Excluir Transação',
         'Tem certeza de que deseja excluir esta transação do seu histórico?',
         async () => {
-            try {
-                await deleteItem(window.deleteItemGlobal ? 'transactions' : 'transactions', id);
-                state.transactions = state.transactions.filter(t => t.id !== id);
-                
-                // If it has an automatically generated payback transaction, delete it too
-                const paybackId = `${id}-payback`;
-                const hasPayback = state.transactions.some(t => t.id === paybackId);
-                if (hasPayback) {
-                    await deleteItem('transactions', paybackId);
-                    state.transactions = state.transactions.filter(t => t.id !== paybackId);
-                }
-
-                renderApp();
-                showToast('Transação excluída com sucesso.', 'success');
-            } catch (e) {
-                console.error("Failed to delete transaction:", e);
-                showToast('Não foi possível excluir a transação.', 'danger');
+            // Optimistic Update client state immediately
+            state.transactions = state.transactions.filter(t => t.id !== id);
+            
+            const paybackId = `${id}-payback`;
+            const hasPayback = state.transactions.some(t => t.id === paybackId);
+            if (hasPayback) {
+                state.transactions = state.transactions.filter(t => t.id !== paybackId);
             }
+
+            const recurrenceId = `${id}-recurrence`;
+            const hasRecurrence = state.transactions.some(t => t.id === recurrenceId);
+            if (hasRecurrence) {
+                state.transactions = state.transactions.filter(t => t.id !== recurrenceId);
+            }
+
+            renderApp();
+            showToast('Transação excluída com sucesso.', 'success');
+
+            // Perform DB deletion in background
+            (async () => {
+                try {
+                    await deleteItem('transactions', id);
+                    if (hasPayback) {
+                        await deleteItem('transactions', paybackId);
+                    }
+                    if (hasRecurrence) {
+                        await deleteItem('transactions', recurrenceId);
+                    }
+                } catch (e) {
+                    console.error("Failed to delete transaction in background:", e);
+                    showToast('Erro ao sincronizar exclusão com o servidor (dados salvos localmente).', 'warning');
+                }
+            })();
         }
     );
 }
@@ -1406,6 +1423,7 @@ async function handleTransactionFormSubmit(e) {
     const amountVal = parseFloat(document.getElementById('transAmount').value);
     const date = document.getElementById('transDate').value;
     const category = document.getElementById('transCategory').value;
+    const recurringVal = document.getElementById('transRecurring') ? (document.getElementById('transRecurring').checked ? 'sim' : 'nao') : 'nao';
 
     let hasErrors = false;
     clearErrors();
@@ -1432,7 +1450,7 @@ async function handleTransactionFormSubmit(e) {
 
     if (hasErrors) return;
 
-    const finalDescription = [description, observation, interestVal, statusVal, refMonthVal].join(' | ');
+    const finalDescription = [description, observation, interestVal, statusVal, refMonthVal, recurringVal].join(' | ');
 
     const transactionData = {
         id: id || `trans-${state.username}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1445,21 +1463,21 @@ async function handleTransactionFormSubmit(e) {
     };
 
     try {
-        await putItem('transactions', transactionData);
-        
+        // --- Optimistic Local State Update ---
         if (id) {
             const idx = state.transactions.findIndex(t => t.id === id);
             if (idx !== -1) {
                 state.transactions[idx] = transactionData;
             }
-            showToast('Transação atualizada com sucesso.', 'success');
         } else {
             state.transactions.push(transactionData);
-            
-            showToast('Nova transação adicionada com sucesso.', 'success');
         }
 
-        // Automatic Loan Payback creation/updates
+        // Handle payback creation / updates
+        let paybackData = null;
+        let shouldDeletePayback = false;
+        const paybackId = `${transactionData.id}-payback`;
+
         if (isLoanIncome) {
             const mainDesc = description.split(' | ')[0];
             
@@ -1474,22 +1492,20 @@ async function handleTransactionFormSubmit(e) {
 
             // Preserve payback status if it already exists
             let paybackStatus = 'pendente';
-            const existingPayback = state.transactions.find(t => t.id === `${transactionData.id}-payback`);
+            const existingPayback = state.transactions.find(t => t.id === paybackId);
             if (existingPayback) {
                 paybackStatus = parseTransactionDesc(existingPayback).status;
             }
 
-            const paybackData = {
-                id: `${transactionData.id}-payback`,
+            paybackData = {
+                id: paybackId,
                 username: state.username,
                 type: 'expense',
-                description: [`Pagamento: ${mainDesc}${interestSuffix}`, '', '', paybackStatus, paybackDateVal.substring(0, 7)].join(' | '),
+                description: [`Pagamento: ${mainDesc}${interestSuffix}`, '', '', paybackStatus, paybackDateVal.substring(0, 7), 'nao'].join(' | '),
                 amount: paybackAmount,
                 date: paybackDateVal,
                 category: category
             };
-
-            await putItem('transactions', paybackData);
 
             const paybackIdx = state.transactions.findIndex(t => t.id === paybackData.id);
             if (paybackIdx !== -1) {
@@ -1499,23 +1515,99 @@ async function handleTransactionFormSubmit(e) {
             }
         } else {
             // Delete associated payback if category changed or type changed
-            const paybackId = `${transactionData.id}-payback`;
             const hasPayback = state.transactions.some(t => t.id === paybackId);
             if (hasPayback) {
-                await deleteItem('transactions', paybackId);
                 state.transactions = state.transactions.filter(t => t.id !== paybackId);
+                shouldDeletePayback = true;
             }
         }
 
+        // Handle monthly recurrence creation / updates
+        let recurrenceData = null;
+        let shouldDeleteRecurrence = false;
+        const recurrenceId = `${transactionData.id}-recurrence`;
+
+        if (recurringVal === 'sim') {
+            const parts = refMonthVal.split('-');
+            let rYear = parseInt(parts[0]);
+            let rMonth = parseInt(parts[1]);
+            rMonth += 1;
+            if (rMonth > 12) {
+                rMonth = 1;
+                rYear += 1;
+            }
+            const nextRefMonth = `${rYear}-${String(rMonth).padStart(2, '0')}`;
+
+            const dateParts = date.split('-');
+            let dYear = parseInt(dateParts[0]);
+            let dMonth = parseInt(dateParts[1]);
+            const dDay = parseInt(dateParts[2]);
+            dMonth += 1;
+            if (dMonth > 12) {
+                dMonth = 1;
+                dYear += 1;
+            }
+            const lastDayOfNextMonth = new Date(dYear, dMonth, 0).getDate();
+            const nextDay = Math.min(dDay, lastDayOfNextMonth);
+            const nextDateStr = `${dYear}-${String(dMonth).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+
+            recurrenceData = {
+                id: recurrenceId,
+                username: state.username,
+                type,
+                description: [description, "Recorrência Mensal", "", "pendente", nextRefMonth, "sim"].join(' | '),
+                amount: amountVal,
+                date: nextDateStr,
+                category
+            };
+
+            const recIdx = state.transactions.findIndex(t => t.id === recurrenceId);
+            if (recIdx !== -1) {
+                state.transactions[recIdx] = recurrenceData;
+            } else {
+                state.transactions.push(recurrenceData);
+            }
+        } else {
+            const hasRecurrence = state.transactions.some(t => t.id === recurrenceId);
+            if (hasRecurrence) {
+                state.transactions = state.transactions.filter(t => t.id !== recurrenceId);
+                shouldDeleteRecurrence = true;
+            }
+        }
+
+        // --- View Updates (instantaneous!) ---
         // Check if the transaction's reference month is different from the currently active reference month
         if (state.referenceMonth !== refMonthVal) {
             state.referenceMonth = refMonthVal;
             updateActiveMonthLabel();
-            showToast(`Visualizando o mês de ${document.getElementById('activeMonthLabel').textContent} para mostrar a transação.`, 'info');
         }
 
         closeModal('transactionModal');
         renderApp();
+        showToast(id ? 'Transação atualizada com sucesso.' : 'Nova transação adicionada com sucesso.', 'success');
+
+        // --- Background Database Sync (Non-blocking) ---
+        (async () => {
+            try {
+                await putItem('transactions', transactionData);
+                if (paybackData) {
+                    await putItem('transactions', paybackData);
+                }
+                if (recurrenceData) {
+                    await putItem('transactions', recurrenceData);
+                }
+                if (shouldDeletePayback) {
+                    await deleteItem('transactions', paybackId);
+                }
+                if (shouldDeleteRecurrence) {
+                    await deleteItem('transactions', recurrenceId);
+                }
+            } catch (dbErr) {
+                console.error("Background sync failed:", dbErr);
+                showToast('Erro ao sincronizar com o servidor (dados salvos localmente).', 'warning');
+            }
+        })();
+
     } catch (err) {
         console.error("Error saving transaction:", err);
         showToast('Erro ao salvar transação.', 'danger');
@@ -2440,14 +2532,15 @@ async function toggleTransactionStatus(id) {
     const finalDescription = [parsed.description, parsed.observation, parsed.interest, newStatus, parsed.refMonth].join(' | ');
     t.description = finalDescription;
     
-    try {
-        await putItem('transactions', t);
-        renderApp();
-        showToast(`Status alterado para: ${newStatus === 'pago' ? 'Pago' : 'Pendente'}`, 'success');
-    } catch (err) {
-        console.error("Error toggling status:", err);
-        showToast('Erro ao atualizar status.', 'danger');
-    }
+    // Update local state instantly and re-render
+    renderApp();
+    showToast(`Status alterado para: ${newStatus === 'pago' ? 'Pago' : 'Pendente'}`, 'success');
+
+    // Run DB update in background
+    putItem('transactions', t).catch(err => {
+        console.error("Error toggling status in background:", err);
+        showToast('Erro ao salvar status no servidor (dados salvos localmente).', 'warning');
+    });
 }
 
 window.toggleTransactionStatus = toggleTransactionStatus;
@@ -2665,6 +2758,7 @@ function setupEventListeners() {
         document.getElementById('transStatus').value = 'pago';
         document.getElementById('transRefMonth').value = state.referenceMonth || '';
         document.getElementById('transPaybackDate').value = '';
+        document.getElementById('transRecurring').checked = false;
         
         // Use active reference month if it doesn't match current actual month, otherwise use today's date
         const today = new Date();
