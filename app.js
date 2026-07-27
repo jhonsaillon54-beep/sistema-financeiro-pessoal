@@ -783,7 +783,7 @@ function renderDashboardSummary() {
     state.transactions.forEach(t => {
         const amount = t.amount;
         const type = t.type;
-        const tMonthKey = t.date.substring(0, 7);
+        const tMonthKey = parseTransactionDesc(t).refMonth;
 
         // Active month specific tracking
         if (tMonthKey === activeMonthKey) {
@@ -800,7 +800,7 @@ function renderDashboardSummary() {
     state.categories.forEach(cat => {
         if (cat.isFixed && cat.fixedAmount > 0) {
             const spentThisMonth = state.transactions
-                .filter(t => t.type === 'expense' && t.category === cat.name && t.date.substring(0, 7) === activeMonthKey)
+                .filter(t => t.type === 'expense' && t.category === cat.name && parseTransactionDesc(t).refMonth === activeMonthKey)
                 .reduce((sum, t) => sum + t.amount, 0);
             
             const remaining = Math.max(0, cat.fixedAmount - spentThisMonth);
@@ -912,7 +912,7 @@ function renderBudgets() {
 
     const monthlySpending = {};
     state.transactions.forEach(t => {
-        if (t.type === 'expense' && t.date.substring(0, 7) === currentMonth) {
+        if (t.type === 'expense' && parseTransactionDesc(t).refMonth === currentMonth) {
             monthlySpending[t.category] = (monthlySpending[t.category] || 0) + t.amount;
         }
     });
@@ -1009,7 +1009,7 @@ function renderTransactionsTable() {
                 matchesDate = matchesDate && (t.date <= endDate);
             }
         } else {
-            matchesDate = (t.date.substring(0, 7) === state.referenceMonth);
+            matchesDate = (parseTransactionDesc(t).refMonth === state.referenceMonth);
         }
 
         return matchesSearch && matchesType && matchesCategory && matchesDate;
@@ -1053,10 +1053,36 @@ function renderTransactionsTable() {
             ? `<i class="fa-solid ${cat.icon}"></i>` 
             : `<span class="category-emoji-icon">${cat.icon || '🏷️'}</span>`;
         
-        const descParts = t.description.split(' | ');
-        const mainDesc = descParts[0];
-        const obs = descParts[1] || '';
-        const interest = descParts[2] || '';
+        const parsed = parseTransactionDesc(t);
+        const mainDesc = parsed.description;
+        const obs = parsed.observation;
+        const interest = parsed.interest;
+        const status = parsed.status;
+
+        let statusBadge = '';
+        let rowClass = 'animate-fade';
+        
+        if (status === 'pendente') {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const tDate = new Date(t.date + 'T00:00:00');
+            const diffDays = Math.ceil((tDate - today) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays <= 3) {
+                if (diffDays < 0) {
+                    statusBadge = `<button class="btn-status-toggle badge-status pending-alert" onclick="toggleTransactionStatus('${t.id}')" title="Atrasado por ${Math.abs(diffDays)} dias! Clique para marcar como Pago"><i class="fa-solid fa-circle-exclamation"></i> Atrasado ${Math.abs(diffDays)}d</button>`;
+                } else if (diffDays === 0) {
+                    statusBadge = `<button class="btn-status-toggle badge-status pending-alert" onclick="toggleTransactionStatus('${t.id}')" title="Vence hoje! Clique para marcar como Pago"><i class="fa-solid fa-triangle-exclamation"></i> Vence hoje</button>`;
+                } else {
+                    statusBadge = `<button class="btn-status-toggle badge-status pending-alert" onclick="toggleTransactionStatus('${t.id}')" title="Vence em ${diffDays} dias! Clique para marcar como Pago"><i class="fa-solid fa-triangle-exclamation"></i> Vence em ${diffDays}d</button>`;
+                }
+                rowClass += ' due-warning';
+            } else {
+                statusBadge = `<button class="btn-status-toggle badge-status pending" onclick="toggleTransactionStatus('${t.id}')" title="Pendente. Clique para marcar como Pago"><i class="fa-solid fa-clock"></i> Pendente</button>`;
+            }
+        } else {
+            statusBadge = `<button class="btn-status-toggle badge-status paid" onclick="toggleTransactionStatus('${t.id}')" title="Pago. Clique para marcar como Pendente"><i class="fa-solid fa-circle-check"></i> Pago</button>`;
+        }
         
         let observationHtml = '';
         if (obs || interest) {
@@ -1068,9 +1094,9 @@ function renderTransactionsTable() {
         }
 
         return `
-            <tr class="animate-fade">
+            <tr class="${rowClass}">
                 <td class="col-date" data-label="Data">${formatDateBR(t.date)}</td>
-                <td class="col-desc" data-label="Descrição"><strong>${mainDesc}</strong>${observationHtml}</td>
+                <td class="col-desc" data-label="Descrição"><strong>${mainDesc}</strong>${statusBadge}${observationHtml}</td>
                 <td class="col-cat" data-label="Categoria">
                     <span class="category-tag" style="background-color: ${cat.color}">
                         ${iconHtml} ${t.category}
@@ -1137,7 +1163,7 @@ function renderCharts() {
         const expenseData = Array(12).fill(0);
 
         state.transactions.forEach(t => {
-            const tMonth = t.date.substring(0, 7);
+            const tMonth = parseTransactionDesc(t).refMonth;
             const idx = monthsList.findIndex(m => m.key === tMonth);
             if (idx !== -1) {
                 if (t.type === 'income') {
@@ -1214,7 +1240,7 @@ function renderCharts() {
         const categoriesSpend = {};
         
         state.transactions.forEach(t => {
-            if (t.type === 'expense' && t.date.substring(0, 7) === currentMonth) {
+            if (t.type === 'expense' && parseTransactionDesc(t).refMonth === currentMonth) {
                 categoriesSpend[t.category] = (categoriesSpend[t.category] || 0) + t.amount;
             }
         });
@@ -1287,6 +1313,20 @@ function renderCharts() {
 
 // --- CRUD Controllers (IndexedDB Powered) ---
 
+function parseTransactionDesc(t) {
+    if (!t || !t.description) {
+        return { description: '', observation: '', interest: '', status: 'pago', refMonth: t ? (t.date ? t.date.substring(0, 7) : '') : '' };
+    }
+    const descParts = t.description.split(' | ');
+    return {
+        description: descParts[0] || '',
+        observation: descParts[1] || '',
+        interest: descParts[2] || '',
+        status: descParts[3] || 'pago',
+        refMonth: descParts[4] || (t.date ? t.date.substring(0, 7) : '')
+    };
+}
+
 // 1. Transaction controllers
 function openEditTransactionModal(id) {
     const t = state.transactions.find(item => item.id === id);
@@ -1295,10 +1335,20 @@ function openEditTransactionModal(id) {
     document.getElementById('modalTitle').textContent = 'Editar Transação';
     document.getElementById('transactionId').value = t.id;
     
-    const descParts = t.description.split(' | ');
-    document.getElementById('transDescription').value = descParts[0];
-    document.getElementById('transObservation').value = descParts[1] || '';
-    document.getElementById('transInterest').value = descParts[2] || '';
+    const parsed = parseTransactionDesc(t);
+    document.getElementById('transDescription').value = parsed.description;
+    document.getElementById('transObservation').value = parsed.observation;
+    document.getElementById('transInterest').value = parsed.interest;
+    document.getElementById('transStatus').value = parsed.status;
+    document.getElementById('transRefMonth').value = parsed.refMonth;
+
+    // Load payback date if it's a loan
+    const paybackTrans = state.transactions.find(item => item.id === `${t.id}-payback`);
+    if (paybackTrans) {
+        document.getElementById('transPaybackDate').value = paybackTrans.date;
+    } else {
+        document.getElementById('transPaybackDate').value = '';
+    }
     
     document.getElementById('transAmount').value = t.amount;
     document.getElementById('transDate').value = t.date;
@@ -1350,6 +1400,9 @@ async function handleTransactionFormSubmit(e) {
     const description = document.getElementById('transDescription').value.trim();
     const observation = document.getElementById('transObservation').value.trim();
     const interestVal = document.getElementById('transInterest') ? document.getElementById('transInterest').value.trim() : '';
+    const statusVal = document.getElementById('transStatus').value;
+    const refMonthVal = document.getElementById('transRefMonth').value;
+    const paybackDateVal = document.getElementById('transPaybackDate') ? document.getElementById('transPaybackDate').value : '';
     const amountVal = parseFloat(document.getElementById('transAmount').value);
     const date = document.getElementById('transDate').value;
     const category = document.getElementById('transCategory').value;
@@ -1370,9 +1423,16 @@ async function handleTransactionFormSubmit(e) {
         hasErrors = true;
     }
 
+    const isLoanIncome = (type === 'income') && (category.toLowerCase() === 'empréstimo' || category.toLowerCase() === 'emprestimo');
+    
+    if (isLoanIncome && !paybackDateVal) {
+        document.getElementById('paybackDateError').style.display = 'block';
+        hasErrors = true;
+    }
+
     if (hasErrors) return;
 
-    const finalDescription = [description, observation, interestVal].join(' | ');
+    const finalDescription = [description, observation, interestVal, statusVal, refMonthVal].join(' | ');
 
     const transactionData = {
         id: id || `trans-${state.username}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1400,23 +1460,7 @@ async function handleTransactionFormSubmit(e) {
         }
 
         // Automatic Loan Payback creation/updates
-        const isLoanIncome = (type === 'income') && (category.toLowerCase() === 'empréstimo' || category.toLowerCase() === 'emprestimo');
         if (isLoanIncome) {
-            const parts = date.split('-');
-            const year = parseInt(parts[0]);
-            const month = parseInt(parts[1]);
-            const day = parseInt(parts[2]);
-
-            let nextMonth = month + 1;
-            let nextYear = year;
-            if (nextMonth > 12) {
-                nextMonth = 1;
-                nextYear += 1;
-            }
-            const lastDayOfNextMonth = new Date(nextYear, nextMonth, 0).getDate();
-            const nextDay = Math.min(day, lastDayOfNextMonth);
-            const nextDateStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
-
             const mainDesc = description.split(' | ')[0];
             
             // Calculate payback amount incorporating interest if present
@@ -1428,13 +1472,20 @@ async function handleTransactionFormSubmit(e) {
             
             const interestSuffix = (!isNaN(parsedInterest) && parsedInterest > 0) ? ` (+${parsedInterest}% juros)` : '';
 
+            // Preserve payback status if it already exists
+            let paybackStatus = 'pendente';
+            const existingPayback = state.transactions.find(t => t.id === `${transactionData.id}-payback`);
+            if (existingPayback) {
+                paybackStatus = parseTransactionDesc(existingPayback).status;
+            }
+
             const paybackData = {
                 id: `${transactionData.id}-payback`,
                 username: state.username,
                 type: 'expense',
-                description: `Pagamento: ${mainDesc}${interestSuffix}`,
+                description: [`Pagamento: ${mainDesc}${interestSuffix}`, '', '', paybackStatus, paybackDateVal.substring(0, 7)].join(' | '),
                 amount: paybackAmount,
-                date: nextDateStr,
+                date: paybackDateVal,
                 category: category
             };
 
@@ -1456,10 +1507,9 @@ async function handleTransactionFormSubmit(e) {
             }
         }
 
-        // Check if the transaction date's month/year is different from the currently active reference month
-        const transactionMonth = date.substring(0, 7);
-        if (state.referenceMonth !== transactionMonth) {
-            state.referenceMonth = transactionMonth;
+        // Check if the transaction's reference month is different from the currently active reference month
+        if (state.referenceMonth !== refMonthVal) {
+            state.referenceMonth = refMonthVal;
             updateActiveMonthLabel();
             showToast(`Visualizando o mês de ${document.getElementById('activeMonthLabel').textContent} para mostrar a transação.`, 'info');
         }
@@ -1470,6 +1520,9 @@ async function handleTransactionFormSubmit(e) {
             document.getElementById('transDescription').value = '';
             document.getElementById('transObservation').value = '';
             document.getElementById('transInterest').value = '';
+            document.getElementById('transStatus').value = 'pago';
+            document.getElementById('transRefMonth').value = state.referenceMonth || '';
+            document.getElementById('transPaybackDate').value = '';
             document.getElementById('transAmount').value = '';
             
             // Reset the date input to match the (potentially updated) active month
@@ -1497,6 +1550,9 @@ function clearErrors() {
     document.getElementById('descError').style.display = 'none';
     document.getElementById('amountError').style.display = 'none';
     document.getElementById('dateError').style.display = 'none';
+    if (document.getElementById('paybackDateError')) {
+        document.getElementById('paybackDateError').style.display = 'none';
+    }
 }
 
 // 2. Custom Category controllers
@@ -1856,10 +1912,11 @@ function exportPDF(filteredTransactions, filenameSuffix) {
             const tagBg = t.type === 'income' ? '#d1fae5' : '#ffe4e6';
             const tagColor = t.type === 'income' ? '#065f46' : '#9f1239';
             
-            const descParts = t.description.split(' | ');
-            const mainDesc = descParts[0];
-            const obs = descParts[1] || '';
-            const interest = descParts[2] || '';
+            const parsed = parseTransactionDesc(t);
+            const mainDesc = parsed.description;
+            const obs = parsed.observation;
+            const interest = parsed.interest;
+            const status = parsed.status;
             let details = [];
             if (obs) details.push(obs);
             if (interest) details.push(`Juros: ${interest}%`);
@@ -2167,13 +2224,15 @@ function exportPDFPrintFallback(filteredTransactions, filenameSuffix) {
         const amtClass = t.type === 'income' ? 'amount-inc' : 'amount-exp';
         const typeLabel = t.type === 'income' ? 'Receita' : 'Despesa';
         const typeClass = t.type === 'income' ? 'inc' : 'exp';
-        const descParts = t.description.split(' | ');
-        const mainDesc = descParts[0];
-        const obs = descParts[1] || '';
-        const interest = descParts[2] || '';
+        const parsed = parseTransactionDesc(t);
+        const mainDesc = parsed.description;
+        const obs = parsed.observation;
+        const interest = parsed.interest;
+        const status = parsed.status;
         let details = [];
         if (obs) details.push(obs);
         if (interest) details.push(`Juros: ${interest}%`);
+        if (status === 'pendente') details.push(`Pendente`);
         const observationText = details.length > 0 ? ` <span style="font-size: 0.75rem; color: #64748b; font-weight: normal;">(${details.join(' • ')})</span>` : '';
 
         html += `
@@ -2348,21 +2407,74 @@ function clearAllData() {
 function toggleInterestRowVisibility() {
     const categorySelect = document.getElementById('transCategory');
     const typeSelect = document.querySelector('input[name="transactionType"]:checked');
-    const interestRow = document.getElementById('interestRow');
+    const interestGroup = document.getElementById('interestGroup');
+    const paybackDateRow = document.getElementById('paybackDateRow');
     
-    if (!categorySelect || !typeSelect || !interestRow) return;
+    if (!categorySelect || !typeSelect) return;
     
     const category = categorySelect.value;
     const type = typeSelect.value;
     const isLoanIncome = (type === 'income') && (category.toLowerCase() === 'empréstimo' || category.toLowerCase() === 'emprestimo');
     
     if (isLoanIncome) {
-        interestRow.style.display = 'flex';
+        if (interestGroup) interestGroup.style.display = 'block';
+        if (paybackDateRow) paybackDateRow.style.display = 'flex';
+        
+        // If payback date is empty, set a default next month same day date
+        const paybackDateInput = document.getElementById('transPaybackDate');
+        if (paybackDateInput && !paybackDateInput.value) {
+            const dateVal = document.getElementById('transDate').value;
+            if (dateVal) {
+                const parts = dateVal.split('-');
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]);
+                const day = parseInt(parts[2]);
+
+                let nextMonth = month + 1;
+                let nextYear = year;
+                if (nextMonth > 12) {
+                    nextMonth = 1;
+                    nextYear += 1;
+                }
+                const lastDayOfNextMonth = new Date(nextYear, nextMonth, 0).getDate();
+                const nextDay = Math.min(day, lastDayOfNextMonth);
+                paybackDateInput.value = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+            }
+        }
     } else {
-        interestRow.style.display = 'none';
-        document.getElementById('transInterest').value = '';
+        if (interestGroup) {
+            interestGroup.style.display = 'none';
+            document.getElementById('transInterest').value = '';
+        }
+        if (paybackDateRow) {
+            paybackDateRow.style.display = 'none';
+            document.getElementById('transPaybackDate').value = '';
+        }
     }
 }
+
+async function toggleTransactionStatus(id) {
+    const t = state.transactions.find(item => item.id === id);
+    if (!t) return;
+
+    const parsed = parseTransactionDesc(t);
+    const newStatus = parsed.status === 'pendente' ? 'pago' : 'pendente';
+    
+    // Save combined description
+    const finalDescription = [parsed.description, parsed.observation, parsed.interest, newStatus, parsed.refMonth].join(' | ');
+    t.description = finalDescription;
+    
+    try {
+        await putItem('transactions', t);
+        renderApp();
+        showToast(`Status alterado para: ${newStatus === 'pago' ? 'Pago' : 'Pendente'}`, 'success');
+    } catch (err) {
+        console.error("Error toggling status:", err);
+        showToast('Erro ao atualizar status.', 'danger');
+    }
+}
+
+window.toggleTransactionStatus = toggleTransactionStatus;
 
 // --- Bind HTML Event Listeners ---
 function setupEventListeners() {
@@ -2574,7 +2686,9 @@ function setupEventListeners() {
         document.getElementById('transactionForm').reset();
         document.getElementById('transObservation').value = '';
         document.getElementById('transInterest').value = '';
-        toggleInterestRowVisibility();
+        document.getElementById('transStatus').value = 'pago';
+        document.getElementById('transRefMonth').value = state.referenceMonth || '';
+        document.getElementById('transPaybackDate').value = '';
         
         // Use active reference month if it doesn't match current actual month, otherwise use today's date
         const today = new Date();
@@ -2592,6 +2706,7 @@ function setupEventListeners() {
         
         clearErrors();
         openModal('transactionModal');
+        toggleInterestRowVisibility();
     });
 
     // Modals Openers

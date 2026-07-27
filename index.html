@@ -468,13 +468,37 @@
                                 <!-- Categories dynamically loaded -->
                             </select>
                         </div>
+                        
+                        <!-- Reference Month selection -->
+                        <div class="form-group flex-1">
+                            <label for="transRefMonth">Mês de Referência</label>
+                            <input type="month" id="transRefMonth" required>
+                        </div>
                     </div>
                     
-                    <div class="form-row" id="interestRow" style="display: none;">
-                        <!-- Interest Rate -->
+                    <div class="form-row">
+                        <!-- Status selection -->
                         <div class="form-group flex-1">
-                            <label for="transInterest">Taxa de Juros do Empréstimo (%)</label>
+                            <label for="transStatus">Status</label>
+                            <select id="transStatus">
+                                <option value="pago" selected>Pago / Recebido</option>
+                                <option value="pendente">Pendente</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Interest Rate (only visible for loan income) -->
+                        <div class="form-group flex-1" id="interestGroup" style="display: none;">
+                            <label for="transInterest">Taxa de Juros (%)</label>
                             <input type="number" id="transInterest" step="0.01" min="0" placeholder="Ex: 20">
+                        </div>
+                    </div>
+                    
+                    <!-- Payback Date row (only visible for loan income) -->
+                    <div class="form-row" id="paybackDateRow" style="display: none;">
+                        <div class="form-group flex-1">
+                            <label for="transPaybackDate">Data de Vencimento do Pagamento</label>
+                            <input type="date" id="transPaybackDate">
+                            <div class="error-msg" id="paybackDateError">Selecione uma data de pagamento válida.</div>
                         </div>
                     </div>
                     
